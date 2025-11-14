@@ -674,6 +674,13 @@ lang_desc: "Set the display language for in-game text.",
                     }
                     
                     const bgmName = this.BGM_MAP[newState];
+
+                    // v10.155: F 등급 인터미션에서 BGM 재생을 방지합니다.
+                    if (newState === 'intermission' && this.lastStageGrade === 'F') {
+                        this.currentBGM = null;
+                        return;
+                    }
+                    
                     if (bgmName) {
                         let audio = this.bgm[bgmName];
                         
@@ -714,26 +721,17 @@ lang_desc: "Set the display language for in-game text.",
                 },
 
                 initSounds() {
-                    // v10.149: data_select를 일반 SFX 목록으로 이동시키고 파일명 통일
-                    // 'data_select'를 단일 SFX로 처리
-                    const singleSoundList = ['click', 'select', 'input', 'refresh', 'perfect', 'clear', 'fail', 'chain', 'warn', 'buy', 'gacha', 'data_select'];
+                    // v10.152: 'stage_clear' 사운드 추가 및 파일명 통일
+                    const singleSoundList = ['click', 'select', 'input', 'refresh', 'perfect', 'clear', 'fail', 'chain', 'warn', 'buy', 'gacha', 'data_select', 'stage_clear'];
                     
-                    // 다중 사운드 정보 제거 (이제 사용하지 않음)
-                    // const arraySoundInfo = { 'data_select': 5 }; 
-
                     singleSoundList.forEach(s => {
-                        // v10.149: 파일 명칭을 'sfx_파일명.mp3'로 통일 (data_select 포함)
-                        // 기존: `${s}_sfx.mp3`
                         this.sounds[s] = new Audio(`audio/sfx_${s}.mp3`);
-                        this.sounds[s].volume = this.sfxVolume; // 초기 볼륨 적용
+                        this.sounds[s].volume = this.sfxVolume;
                     });
-
-                    // v10.149: 다중 사운드 로드 로직 (arraySoundInfo 처리 루프) 삭제됨
 
                     // v10.111: SFX 볼륨 변화 감지
                     this.$watch('sfxVolume', (newVolume) => {
                         for (const key in this.sounds) {
-                            // v10.149: Array.isArray 체크 로직 제거 (이제 다중 사운드가 없으므로)
                             if (this.sounds[key] instanceof Audio) {
                                 this.sounds[key].volume = newVolume;
                             }
@@ -943,6 +941,15 @@ lang_desc: "Set the display language for in-game text.",
                     } else { // Stage 10 미만 또는 Overtime 클리어
                         this.gameState = 'intermission'; 
                         
+                        // v10.155: F 등급일 경우 BGM 재생 방지
+                        if (this.lastStageGrade === 'F') {
+                            // F 등급이면 BGM을 정지합니다.
+                            if (this.currentBGM) {
+                                this.currentBGM.pause();
+                                this.currentBGM = null;
+                            }
+                        }
+                        
                         // 기능 해금 (F 등급이 아닐 때만 실행)
                         if (this.lastStageGrade !== 'F') {
                             // 기능 해금은 미리 업데이트된 this.stage 기준으로 실행 (순서 SWAP 적용)
@@ -1104,12 +1111,21 @@ lang_desc: "Set the display language for in-game text.",
                     
                     const config = this.stageConfig[Math.min(this.stage - 1, this.stageConfig.length - 1)];
                     const isLastNormalBlock = this.blocksCompleted === config.blocks && config.bosses.length > 0;
-                    if (isLastNormalBlock || this.blocksCompleted >= this.totalBlocksPerStage) {
+                    const isStageComplete = this.blocksCompleted >= this.totalBlocksPerStage; // v10.151: 스테이지 완료 플래그
+
+                    if (isLastNormalBlock || isStageComplete) { // v10.151: 스테이지 완료 시에도 클리어 로직 실행
                         this.consecutivePerfects = 0; this.chainCount = 0;
                     }
 
-                    if (this.blocksCompleted >= this.totalBlocksPerStage) {
-                        setTimeout(() => { this.goToIntermission(); }, 1500); 
+                    if (isStageComplete) {
+                        // v10.154: STAGE CLEAR 사운드와 피드백 하드코딩 적용
+                        this.playSound('stage_clear'); 
+                        this.showFeedback('STAGE CLEAR!', 'correct'); // <--- 하드코딩된 텍스트
+
+                        setTimeout(() => { 
+                            this.goToIntermission(); 
+                        }, 2000); // 2초의 딜레이 후 인터미션으로 전환
+                        
                     } else {
                         if (isLastNormalBlock) {
                             this.playSound('warn'); 
@@ -2087,7 +2103,7 @@ lang_desc: "Set the display language for in-game text.",
                         </div>
                     </template>
                 </div>
-                <!-- Bottom Navigation (Fixed) -->
+               <!-- Bottom Navigation (Fixed) -->
                 <div class="flex-shrink-0 pt-2 bg-black/20 backdrop-blur-md -mx-4 px-4 -mb-4 pb-2 rounded-t-xl z-20">
                     <div class="grid grid-cols-2 gap-4">
                         <!-- v10.139: RETURN 하드코딩 -->
@@ -2101,6 +2117,12 @@ lang_desc: "Set the display language for in-game text.",
                                     'btn-green-glow text-green-400': lastStageGrade !== 'F'
                                 }">
                             NEXT
+                            <!-- v10.156: F 등급일 때 자물쇠 이모지 오버레이 -->
+                            <template x-if="lastStageGrade === 'F'">
+                                <span class="absolute inset-0 flex items-center justify-center z-10">
+                                    <span class="text-4xl filter drop-shadow-xl">🔒</span>
+                                </span>
+                            </template>
                         </button>
                     </div>
                 </div>
@@ -2455,7 +2477,7 @@ lang_desc: "Set the display language for in-game text.",
                     <div class="booster-pack-container flex flex-col items-center">
                         <template x-if="gachaState === 'ready' || gachaState === 'opening'">
                              <button @click="startGachaAnimation()" :disabled="gachaState !== 'ready'" class="booster-pack cursor-pointer" :class="gachaState === 'opening' ? 'pack-shaking' : ''">
-                                <span class="text-purple-300 font-black">MH</span>
+                                <span class="text-purple-300 font-black">🃏</span>
                             </button>
                         </template>
                         <!-- Flash Overlay -->
