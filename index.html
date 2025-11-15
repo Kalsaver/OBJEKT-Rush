@@ -297,7 +297,7 @@
                 totalScore: 0,
                 lastStageScore: 0,
                 finalScore: 0,
-                como: 0, // v10.126: COMO 초기값 0으로 설정
+                como: 1, // v10.126: COMO 초기값 0으로 설정
                 comoEarned: 0,
                 bonusComo: 0,
                 
@@ -715,7 +715,7 @@
                 startGame(isContinuing = false) {
                     this.playSound('click');
                     if (!isContinuing) {
-                        this.stage = 1; this.como = 0; this.totalScore = 0; 
+                        this.stage = 1; this.como = 1; this.totalScore = 0; 
                         this.amuletLevel = 0; this.assistLevel = 0; this.timePlusLevel = 0; this.scanLevel = 0; 
                         // v10.179 FIX: reloadBoost를 새 게임 시작 시에만 초기화 (영구 스탯처럼 작동 방지)
                         this.reloadBoost = 0; 
@@ -805,12 +805,11 @@
                     }, 100);
                 },
                 getStageBaseComo() {
-                    // v10.126: COMO 수급 로직 수정
-                    if (this.stage >= 9 && this.stage <= 11) return 5;
-                    if (this.stage >= 7) return 4;
-                    if (this.stage >= 5) return 3;
-                    if (this.stage >= 3) return 2;
-                    if (this.stage >= 1) return 1;
+                    // v10.186: COMO 기본 지급 구조 변경
+                    if (this.stage >= 10 && this.stage <= 11) return 5; // 10~11
+                    if (this.stage >= 7) return 4; // 7~9
+                    if (this.stage >= 4) return 3; // 4~6
+                    if (this.stage >= 1) return 2; // 1~3
                     return 0; // 안전장치
                 },
                 goToIntermission() { 
