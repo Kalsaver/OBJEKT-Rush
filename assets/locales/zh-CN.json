@@ -9,11 +9,11 @@
     "intro_line_1_d": "在正式投入之前，你必须完全掌握下一页的机密数据。",
     "intro_line_prompt": "...我不容忍失误。你能胜任吗？",
     
-    "item_reload_desc": "将下一阶段的RELOAD次数增加1次。\n(最多+20次)",
-    "item_timePlus_desc": "将区块的限定时间延长2秒。\n(最高等级1)",
-    "item_scan_desc": "在生日区块显示成员的颜色提示。\n(最高等级1)",
-    "item_amulet_desc": "输入不良/朋友卡时，有20%概率变更为ARTMS卡。\n(最高等级1)",
-    "item_assist_desc": "朋友卡有20%概率出现在数据池中。\n(最高等级1)",
+    "item_reload_desc": "购买额外RELOAD次数。最多可充值+20次。",
+    "item_timePlus_desc": "改善交易(transaction)速度，确保额外获得2秒的区块处理时间。",
+    "item_scan_desc": "查找丢失的数据并恢复生日区块的颜色提示。",
+    "item_amulet_desc": "输入错误数据时，月之女神护身符有较低概率会解救你。",
+    "item_assist_desc": "错误数据有较低概率转化为易于识别的形式。",
     
     "boss_S_0": "你很有能力。只有具备这种能力，才能成为我的搭档。",
     "boss_S_1": "这是完美的工作。S级不是谁都能拿到的。",
