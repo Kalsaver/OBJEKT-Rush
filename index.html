@@ -372,8 +372,16 @@
                 currentSeasonIndex: 0, // 시즌 인덱스 (0: Atom01, 1: Binary01, ...)
 
                 // v10.138: 다국어 지원 설정 추가
-                currentLang: 'en', // 현재 언어 코드
-                supportedLangs: [{ code: 'ko', name: '한국어 (Korean)' }, { code: 'en', name: 'English' }, { code: 'ja', name: '日本語 (Japanese)' }],
+                currentLang: 'ko', // 현재 언어 코드
+                supportedLangs: [
+                    { code: 'ko', name: '한국어 (Korean)' }, 
+                    { code: 'en', name: 'English' }, 
+                    { code: 'ja', name: '日本語 (Japanese)' },
+                    { code: 'zh-CN', name: '简体中文 (Simplified)' },
+                    { code: 'zh-TW', name: '繁體中文 (Traditional)' },
+                    { code: 'th', name: 'ภาษาไทย (Thai)' }, // <-- 추가
+                    { code: 'vi', name: 'Tiếng Việt (Vietnamese)' } // <-- 추가
+                ],
                 // v10.138: 번역 데이터 저장소
                 translations: {}, 
                 
