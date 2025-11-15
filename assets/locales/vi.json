@@ -9,11 +9,11 @@
     "intro_line_1_d": "Trước khi triển khai chính thức, bạn phải nắm vững hoàn toàn dữ liệu mật ở trang tiếp theo.",
     "intro_line_prompt": "...Tôi không dung thứ cho sai lầm. Bạn có sẵn sàng không?",
     
-    "item_reload_desc": "Tăng thêm 1 lần số lần RELOAD cho màn chơi tiếp theo.\n(Tối đa +20 lần)",
-    "item_timePlus_desc": "Tăng giới hạn thời gian của khối lên 2 giây.\n(Cấp độ tối đa 1)",
-    "item_scan_desc": "Hiển thị gợi ý màu của thành viên cho khối Sinh nhật.\n(Cấp độ tối đa 1)",
-    "item_amulet_desc": "Khi nhập thẻ Lỗi/Thẻ Bạn bè, có 20% cơ hội đổi thành Thẻ ARTMS.\n(Cấp độ tối đa 1)",
-    "item_assist_desc": "Thẻ Bạn bè có 20% cơ hội xuất hiện trong Data Pool.\n(Cấp độ tối đa 1)",
+    "item_reload_desc": "Mua thêm số lần RELOAD. Có thể nạp tối đa +20 lần.",
+    "item_timePlus_desc": "Cải thiện tốc độ giao dịch (transaction), đảm bảo thêm 2 giây thời gian xử lý khối.",
+    "item_scan_desc": "Tìm kiếm dữ liệu bị mất và khôi phục màu sắc cho khối Sinh nhật.",
+    "item_amulet_desc": "Bùa Hộ Mệnh Nữ Thần Mặt Trăng hiếm khi cứu bạn khỏi việc nhập dữ liệu sai.",
+    "item_assist_desc": "Dữ liệu lỗi hiếm khi được thay đổi thành định dạng dễ nhận biết hơn.",
     
     "boss_S_0": "Bạn khá có năng lực. Chỉ với khả năng này, bạn mới có thể trở thành đối tác của tôi.",
     "boss_S_1": "Đó là một công việc hoàn hảo. Không phải ai cũng nhận được hạng S.",
