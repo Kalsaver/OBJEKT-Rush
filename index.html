@@ -1065,12 +1065,16 @@
                     this.currentBlock = null; 
                     
                     const config = this.stageConfig[Math.min(this.stage - 1, this.stageConfig.length - 1)];
-                    const isLastNormalBlock = this.blocksCompleted === config.blocks && config.bosses.length > 0;
-                    const isStageComplete = this.blocksCompleted >= this.totalBlocksPerStage; // v10.151: 스테이지 완료 플래그
+                    
+                    // isLastNormalBlock은 보스가 있는 스테이지에서만 의미가 있습니다.
+                    const isStageComplete = this.blocksCompleted >= this.totalBlocksPerStage; 
+                    const isLastBlockOfStage = this.blocksCompleted === this.totalBlocksPerStage;
+                    const hasBosses = config.bosses.length > 0;
+                    // 보스 블록이 아직 남아있지 않은 경우(총 블록 수는 채웠는데 보스 블록은 없는 경우)
+                    const isLastNormalBlockBeforeBoss = this.blocksCompleted === config.blocks && hasBosses;
 
-                    if (isLastNormalBlock || isStageComplete) { // v10.151: 스테이지 완료 시에도 클리어 로직 실행
+                    if (isStageComplete || isLastNormalBlockBeforeBoss) { 
                         this.consecutivePerfects = 0; this.chainCount = 0;
-                        // v10.160: 스테이지 완료 시 보스 BGM 종료 플래그
                         this.isBossBlockActive = false; 
                     }
 
@@ -1084,14 +1088,14 @@
                         }, 2000); // 2초의 딜레이 후 인터미션으로 전환
                         
                     } else {
-                        if (isLastNormalBlock) {
+                        if (isLastNormalBlockBeforeBoss) {
                             this.playSound('warn'); 
                             this.nextBlockWillBeBoss = true;
-                            // v10.160: 보스 BGM 종료 후 경고음 재생 및 일반 BGM으로 복귀
+                            // 보스 블록이 이어질 경우, 일반 BGM으로 복귀
                             this.switchBGM('playing'); 
                             setTimeout(() => { this.nextBlockWillBeBoss = false; this.generateNewBlock(); }, 3000); 
                         } else { 
-                            // v10.160: 다음 블록 생성 시 보스 BGM 종료 확인
+                            // 일반 블록이 이어질 경우
                             this.isBossBlockActive = false; 
                             this.switchBGM('playing'); 
                             setTimeout(() => { this.generateNewBlock(); }, 1500); 
