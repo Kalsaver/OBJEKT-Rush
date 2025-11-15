@@ -594,9 +594,9 @@
                     if (bgmName) {
                         let audio = this.bgm[bgmName];
                         
-                        // BGM이 로드되지 않았으면 로드
+                        // BGM이 로드되지 않았으면 로드 (경로 수정: audio/ -> assets/audio/)
                         if (!audio) {
-                            audio = new Audio(`audio/${bgmName}`); // 경로 수정: audio 폴더로 변경
+                            audio = new Audio(`assets/audio/${bgmName}`); // 경로 수정 적용
                             audio.loop = true;
                             this.bgm[bgmName] = audio;
                         }
@@ -635,7 +635,8 @@
                     const singleSoundList = ['click', 'select', 'input', 'refresh', 'perfect', 'clear', 'fail', 'chain', 'warn', 'buy', 'gacha', 'data_select', 'stage_clear'];
                     
                     singleSoundList.forEach(s => {
-                        this.sounds[s] = new Audio(`audio/sfx_${s}.mp3`);
+                        // v10.157: 파일 경로 수정: audio/ -> assets/audio/
+                        this.sounds[s] = new Audio(`assets/audio/sfx_${s}.mp3`);
                         this.sounds[s].volume = this.sfxVolume;
                     });
 
