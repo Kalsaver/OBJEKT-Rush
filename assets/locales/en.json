@@ -10,7 +10,7 @@
     "intro_line_prompt": "...I don't tolerate mistakes. Are you up to it?",
     
     "item_reload_desc": "Purchase additional RELOAD counts. Max capacity is +20 times.",
-    "item_timePlus_desc": "Improves transaction speed, securing an additional 2s block processing time."
+    "item_timePlus_desc": "Improves transaction speed, securing an additional 2s block processing time.",
     "item_scan_desc": "Restores the color hints of Birthday blocks by locating lost data.",
     "item_amulet_desc": "Moon Goddess Amulet that rarely saves you from wrong data input.",
     "item_assist_desc": "Incorrect data rarely changes into an easier format to identify.",
