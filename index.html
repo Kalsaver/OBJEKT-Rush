@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OBJEKT Rush (v10.193)</title>
+    <title>OBJEKT Rush (v10.196)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js" defer></script>
     <style>
@@ -1532,8 +1532,6 @@
                         <button @click="showRanking()" class="glass-button w-full py-4 px-6 rounded-xl text-xl font-bold text-gray-300 hover:text-white">REKORD</button>
                         <button @click="showSettings()" class="glass-button w-full py-4 px-6 rounded-xl text-xl font-bold text-gray-300 hover:text-white">CONFIG</button>
                     </div>
-                    
-                    <p class="text-xs text-gray-500 mt-16 opacity-50">Developed by Kalsaver (2025) | Unofficial Fan Game</p>
                 </div>
             </div>
 
@@ -2143,15 +2141,34 @@
                     </div>
 
                     <!-- RESET ALL DATA -->
-                    <div class="glass-panel p-5 rounded-2xl mb-6 border border-red-500/30">
-                        <h3 class="text-xl font-bold text-red-400 mb-4">DANGER ZONE</h3>
-                        <p class="text-sm text-gray-400 mb-4">Delete all saved data (Rankings, Items, Settings).</p>
+                    <div class="mb-6">
                         <button @click="confirmReset('all')" class="glass-button w-full py-3 font-bold rounded-xl text-red-400 border-red-500/50 hover:bg-red-500/10">RESET ALL DATA</button>
                     </div>
 
-                </div>
+                    <!-- GAME INFO SECTION -->
+                    <div class="glass-panel p-5 rounded-2xl mb-6 border border-white/10">
+                        <h3 class="text-xl font-bold text-gray-300 mb-4 flex items-center">ABOUT</h3>
+                        <div class="space-y-3 text-sm text-gray-400">
+                            <div class="flex justify-between border-b border-white/5 pb-2">
+                                <span>VERSION</span>
+                                <span class="text-white font-mono">v10.196</span>
+                            </div>
+                            <div class="flex justify-between border-b border-white/5 pb-2">
+                                <span>DEVELOPER</span>
+                                <span class="text-white">Kalsaver (2025)</span>
+                            </div>
+                            <div class="flex justify-between border-b border-white/5 pb-2">
+                                <span>BGM CREDIT</span>
+                                <span class="text-white">TBA</span>
+                            </div>
+                            <div class="pt-2 text-xs text-gray-500 leading-relaxed text-center">
+                                This is an unofficial fan game.<br>
+                                All original IPs belong to MODHAUS.
+                            </div>
+                        </div>
+                    </div>
 
-                <p class="text-center text-gray-500 text-xs mt-4 mb-2 px-4 opacity-70 flex-shrink-0">This is an unofficial fan game. All original IPs belong to MODHAUS.</p>
+                </div>
                 
                 <div class="flex-shrink-0 pt-2 bg-black/20 backdrop-blur-md -mx-4 px-4 -mb-4 pb-2 rounded-t-xl z-20">
                     <button @click="gameState = previousGameState; saveSettings()" class="glass-button w-full py-4 text-2xl font-bold rounded-2xl text-white">BACK
