@@ -1631,7 +1631,17 @@
                 </header>
 
                 <div id="order-area" class="w-full flex-shrink-0 p-2 glass-panel my-1 rounded-2xl relative">
-                    <template x-if="chainCount > 0"><div class="absolute top-2 right-3 flex flex-col items-end z-10"><span class="text-cyan-400 text-xs font-bold tracking-widest animate-pulse mb-0 leading-none">⛓️ CHAIN</span><span class="text-yellow-300 text-2xl font-black text-glow-sm leading-none" x-text="chainCount"></span></div></template>
+                    <template x-if="chainCount > 0">
+                        <div class="absolute top-2 right-3 flex flex-col items-end z-10">
+                            <!-- 위쪽: CHAIN 텍스트만 남김 -->
+                            <span class="text-cyan-400 text-xs font-bold tracking-widest animate-pulse mb-1 leading-none">CHAIN</span>
+                            <!-- 아래쪽: 이모지를 숫자 왼쪽으로 배치 -->
+                            <div class="flex items-center">
+                                <span class="text-lg mr-1 animate-pulse">⛓️</span>
+                                <span class="text-yellow-300 text-2xl font-black text-glow-sm leading-none" x-text="chainCount"></span>
+                            </div>
+                        </div>
+                    </template>
                     <div class="flex items-center justify-center space-x-2 h-16" id="boss-block-anchor">
                         <template x-if="!currentBlock && blocksCompleted < totalBlocksPerStage"><div>
                             <span x-show="nextBlockWillBeBoss" class="text-red-400 font-bold animate-pulse text-xl font-mono text-glow-sm" x-text="translate('playing_next_block_boss')"></span>
