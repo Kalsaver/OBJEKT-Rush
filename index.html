@@ -12,7 +12,8 @@
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js';
         import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js';
         // [UPDATE] getDoc, setDoc, arrayUnion 추가 (Req 5, 6)
-        import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, serverTimestamp, where, doc, updateDoc, getDoc, setDoc, arrayUnion } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
+        // [UPDATE] increment, onSnapshot 추가 (seasonGravity)
+        import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, serverTimestamp, where, doc, updateDoc, getDoc, setDoc, arrayUnion, increment, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
 
         // Dimension Link 프로젝트 설정
         const firebaseConfig = {
@@ -55,9 +56,13 @@
         window.fbGetDoc = getDoc; // [NEW] (Req 5, 6)
         window.fbSetDoc = setDoc; // [NEW] (Req 5, 6)
         window.fbArrayUnion = arrayUnion; // [NEW] (Req 5, 6)
+        window.fbIncrement = increment; // [NEW] (seasonGravity)
+        window.fbOnSnapshot = onSnapshot; // [NEW] (seasonGravity)
         
         console.log("Firebase Initialized");
     </script>
+
+    <style>
 
     <style>
         /* --- LAYOUT & SCROLLBAR --- */
@@ -435,7 +440,9 @@
                 isProfileLoading: true,
                 
                 // Gravity Vote
-                gravityVotes: {},
+                localGravityVotes: {}, // [RENAME] S1-S10 로컬 투표용
+                seasonGravityVotes: {}, // [NEW] S11(Overtime) 글로벌 시즌 투표용
+                seasonGravityListener: null, // [NEW] S11 실시간 리스너 구독 해제용
                 
                 // Audio
                 sounds: {}, 
@@ -477,7 +484,7 @@
                 DEFAULT_BADGE: '👾', // [NEW] (Req 1, 5)
                 // [NEW] Badge Reward Table (Loops automatically) (Req 4)
                 SEASON_BADGE_TABLE: [
-                    '🪙', '💎', '🍓', '🏆', '✨', '🚀', '🌙', '⭐', '❤️‍🔥', '🍀', '🌊', '⚡️'
+                    '🌊', '💎', '🍓', '🏆', '✨', '🚀', '🌙', '⭐', '❤️', '🍀', '🥦', '⚡️'
                 ],
                 SCORING: { 
                     CORRECT_CARD: 10, 
@@ -516,11 +523,11 @@
                     { blocks: 8, decoy: 0.1, birthdayChance: 0.1, timeBonus: 0, bosses: [] }, 
                     { blocks: 8, decoy: 0.2, birthdayChance: 0.1, timeBonus: 0, bosses: ['NXT_GLOW'] }, 
                     { blocks: 8, decoy: 0.2, birthdayChance: 0.1, timeBonus: 0, bosses: ['AAA_KRE'] }, 
-                    { blocks: 9, decoy: 0.2, birthdayChance: 0.2, timeBonus: 0, bosses: ['PLANET_DIMS'] }, 
+                    { blocks: 9, decoy: 0.2, birthdayChance: 0.2, timeBonus: 0, bosses: ['MSNZ'] }, // [RENAME]
                     { blocks: 9, decoy: 0.2, birthdayChance: 0.2, timeBonus: 0, bosses: ['LOVE_EVOL'] }, 
                     { blocks: 9, decoy: 0.3, birthdayChance: 0.2, timeBonus: 0, bosses: ['HATCH_ALPHIE'] }, 
                     { blocks: 10, decoy: 0.3, birthdayChance: 0.2, timeBonus: 0, bosses: ['ARIA_VV'] }, 
-                    { blocks: 24, decoy: 0.3, birthdayChance: 0.3, timeBonus: 0, bosses: ['PLANET_DIMS'] } 
+                    { blocks: 24, decoy: 0.3, birthdayChance: 0.3, timeBonus: 0, bosses: ['MSNZ'] } // [RENAME]
                 ],
                 bossPools: {
                     'NXT_GLOW': ['NXT', 'Glow'],
@@ -528,7 +535,7 @@
                     'LOVE_EVOL': ['LOVE', 'EVOL'],
                     'ARIA_VV': ['Aria', 'VV'],
                     'HATCH_ALPHIE': ['Hatch!', 'Alphie'],
-                    'PLANET_DIMS': ['Moon', 'Sun', 'Neptune', 'Zenith']
+                    'MSNZ': ['Moon', 'Sun', 'Neptune', 'Zenith'] // [RENAME]
                 },
 
                 memberData: [],
@@ -1466,7 +1473,17 @@
                         this.showFeedback('SEND FAILED', 'incorrect');
                     }
                 },
-                restartGame() { this.playSound('click'); this.returnConfirmModal.show = false; this.gameState = 'start'; },
+                restartGame() { 
+                    this.playSound('click'); 
+                    this.returnConfirmModal.show = false; 
+                    // [NEW] 시즌 투표 리스너 구독 해제
+                    if (this.seasonGravityListener) {
+                        this.seasonGravityListener(); // Unsubscribe
+                        this.seasonGravityListener = null;
+                        console.log("Season Gravity listener stopped.");
+                    }
+                    this.gameState = 'start'; 
+                },
                 continueOvertime() { this.playSound('click'); this.stage = 11; this.gameState = 'intermission'; },
                 // ... [OMITTED: generateNewBlock, checkStageCompletion, processBlockComplete, calculateAndApplyScore - No changes needed] ...
                 generateNewBlock() {
@@ -1486,7 +1503,14 @@
                         let poolKey = config.bosses[poolKeyIndex]; 
                         if (this.bossPools[poolKey]) {
                             const pool = this.bossPools[poolKey];
-                            let gravityPool = this.gravityVotes;
+                            
+                            // [UPDATE] S11(Overtime) 여부에 따라 다른 투표 풀 사용
+                            let gravityPool;
+                            if (this.stage === 11) {
+                                gravityPool = this.seasonGravityVotes;
+                            } else {
+                                gravityPool = this.localGravityVotes;
+                            }
                             
                             const totalVotes = pool.reduce((acc, name) => acc + (gravityPool[name] || 0), 0) + pool.length;
                             
@@ -2032,24 +2056,116 @@
                     if (card && this.inventory.filter(c => c.sNumber === card.sNumber && !c.isSpecial).length >= 4) this.showFeedback(`${card.sNumber} ${this.translate('feedback_grid_available')}`, 'correct'); 
                 },
                 getGravityVotes(poolKey) { return this.bossPools[poolKey] || []; },
+                
+                // [UPDATE] Overtime(S11) 글로벌 투표, S1-S10 로컬 투표 분리
                 initializeGravityVotes() {
-                    const configIndex = (this.stage === 10) ? this.stage : Math.min(this.stage - 1, this.stageConfig.length - 1);
-                    const nextConfig = this.stageConfig[configIndex];
+                    // this.stage는 '다음' 스테이지를 의미함
                     
-                    if (!nextConfig || nextConfig.bosses.length === 0 || !this.bossPools[nextConfig.bosses[0]]) { this.gravityVotes = {}; return; }
-                    const pool = this.bossPools[nextConfig.bosses[0]];
-                    if (pool.some(name => this.gravityVotes[name] === undefined)) {
-                        pool.forEach(name => { this.gravityVotes[name] = 0; });
+                    // 1. S11 (Overtime) - 글로벌/시즌 투표 (Firestore)
+                    if (this.stage === 11) {
+                        // S1-S10에서 사용하던 로컬 투표 데이터 초기화 (선택 사항)
+                        this.localGravityVotes = {}; 
+                        
+                        // 이미 리스너가 연결되어 있다면 중복 실행 방지
+                        if (this.seasonGravityListener) {
+                            console.log("Season Gravity listener already active.");
+                            return;
+                        }
+
+                        console.log(`Connecting to Season Gravity: ${this.currentSeason.id}`);
+                        const docRef = window.fbDoc(window.fbDb, "seasonGravity", this.currentSeason.id);
+                        
+                        this.seasonGravityListener = window.fbOnSnapshot(docRef, (doc) => {
+                            if (doc.exists()) {
+                                this.seasonGravityVotes = doc.data();
+                                console.log("Season Gravity data updated:", this.seasonGravityVotes);
+                            } else {
+                                // 아직 아무도 투표 안 함 (시즌 첫 투표)
+                                console.log("Season Gravity doc not found, initializing locally.");
+                                // MSNZ 보스 풀로 초기화
+                                this.seasonGravityVotes = { 'Moon': 0, 'Sun': 0, 'Neptune': 0, 'Zenith': 0 };
+                            }
+                        }, (error) => {
+                            console.error("Error listening to Season Gravity: ", error);
+                            // 에러 시 로컬 0으로 초기화
+                            this.seasonGravityVotes = { 'Moon': 0, 'Sun': 0, 'Neptune': 0, 'Zenith': 0 };
+                        });
+
+                    // 2. S1-S10 (Standard) - 로컬 투표
+                    } else {
+                        // Overtime(S11)을 플레이하다가 타이틀로 돌아가 Standard를 시작할 경우,
+                        // S11의 리스너를 반드시 구독 해제해야 함.
+                        if (this.seasonGravityListener) {
+                            this.seasonGravityListener(); // Unsubscribe
+                            this.seasonGravityListener = null;
+                            this.seasonGravityVotes = {}; // 글로벌 투표 데이터 비우기
+                            console.log("Season Gravity listener stopped (Switched to Standard).");
+                        }
+
+                        // 기존 로컬 투표 로직 (S1-S10)
+                        const configIndex = (this.stage === 10) ? this.stage : Math.min(this.stage - 1, this.stageConfig.length - 1);
+                        const nextConfig = this.stageConfig[configIndex];
+                        
+                        if (!nextConfig || nextConfig.bosses.length === 0 || !this.bossPools[nextConfig.bosses[0]]) { 
+                            this.localGravityVotes = {}; 
+                            return; 
+                        }
+                        const pool = this.bossPools[nextConfig.bosses[0]];
+                        if (pool.some(name => this.localGravityVotes[name] === undefined)) {
+                            pool.forEach(name => { this.localGravityVotes[name] = 0; });
+                        }
                     }
                 },
+                // [UPDATE] Overtime(S11) 글로벌 투표, S1-S10 로컬 투표 분리
                 voteForBoss(bossName) { 
-                    if (this.como >= 1) { this.como--; this.gravityVotes[bossName] = (this.gravityVotes[bossName] || 0) + 1; this.playSound('buy'); } else this.showFeedback('NOT ENOUGH COMO!', 'incorrect'); 
+                    if (this.como < 1) {
+                        this.showFeedback('NOT ENOUGH COMO!', 'incorrect');
+                        return;
+                    }
+                    
+                    this.como--;
+                    this.playSound('buy');
+
+                    // 1. S11 (Overtime) - 글로벌/시즌 투표 (Firestore)
+                    if (this.stage === 11) {
+                        if (this.currentSeason.state === 'frozen') {
+                             this.showFeedback('SEASON CLOSED', 'incorrect');
+                             this.como++; // 코모 환불
+                             return;
+                        }
+                        
+                        const docRef = window.fbDoc(window.fbDb, "seasonGravity", this.currentSeason.id);
+                        const updateData = {};
+                        updateData[bossName] = window.fbIncrement(1);
+                        
+                        // setDoc (merge: true)는 문서가 없으면 생성, 있으면 필드만 업데이트/추가. (안전함)
+                        window.fbSetDoc(docRef, updateData, { merge: true }).catch((e) => {
+                            console.error("Failed to vote (Season Gravity): ", e);
+                            this.showFeedback('VOTE FAILED', 'incorrect');
+                            this.como++; // 코모 환불
+                        });
+
+                    // 2. S1-S10 (Standard) - 로컬 투표
+                    } else {
+                        this.localGravityVotes[bossName] = (this.localGravityVotes[bossName] || 0) + 1;
+                    }
                 },
+                // [UPDATE] Overtime(S11) 글로벌 투표, S1-S10 로컬 투표 분리
                 getBossProbability(bossName, poolKey) {
-                    const pool = this.bossPools[poolKey]; if (!pool) return 0;
-                    const totalWeight = pool.reduce((acc, name) => acc + (this.gravityVotes[name] || 0), 0) + pool.length;
-                    return totalWeight === 0 ? (100 / pool.length).toFixed(1) : (((this.gravityVotes[bossName] || 0) + 1) / totalWeight * 100).toFixed(1);
+                    const pool = this.bossPools[poolKey]; 
+                    if (!pool) return 0;
+                    
+                    let activeVotes;
+                    if (this.stage === 11) {
+                        activeVotes = this.seasonGravityVotes; // S11은 글로벌 투표
+                    } else {
+                        activeVotes = this.localGravityVotes; // S1-S10은 로컬 투표
+                    }
+
+                    const totalWeight = pool.reduce((acc, name) => acc + (activeVotes[name] || 0), 0) + pool.length;
+                    return totalWeight === 0 ? (100 / pool.length).toFixed(1) : (((activeVotes[bossName] || 0) + 1) / totalWeight * 100).toFixed(1);
                 },
+                
                 isMatchingOrder(card, indexInStall) {
                     if (!this.currentBlock) return false;
                     if (!card) return false; 
@@ -2566,14 +2682,19 @@
                         <div id="gravity" class="glass-panel p-4 rounded-2xl relative">
                             <h3 class="text-lg font-bold text-cyan-400 mb-2 tracking-wider">GRAVITY</h3>
                             <p class="text-sm text-gray-400 mb-3">
-                                <span x-show="stage >= 6" x-text="`${translate('gravity_desc_prefix')} ${translate('gravity_desc_stage')} ${stage} ${translate('gravity_desc_suffix')}`"></span>
+                                <!-- [UPDATE] S11(Overtime)일 때 텍스트 변경 -->
+                                <span x-show="stage === 11" x-text="`[GLOBAL] ${translate('gravity_desc_stage')} ${stage} ${translate('gravity_desc_suffix')}`"></span>
+                                <span x-show="stage < 11" x-text="`[LOCAL] ${translate('gravity_desc_stage')} ${stage} ${translate('gravity_desc_suffix')}`"></span>
                             </p>
                             <div class="grid grid-cols-2 gap-2">
                                 <template x-for="bossName in getGravityVotes(stageConfig[Math.min(stage - 1, stageConfig.length - 1)].bosses[0])" :key="bossName">
                                     <button @click="voteForBoss(bossName)" class="glass-button p-3 rounded-xl flex flex-col justify-center items-center space-y-1">
                                         <span class="text-lg font-bold text-white" x-text="bossName"></span>
                                         <span class="font-bold text-cyan-300 text-sm">
-                                            <span x-text="`${(gravityVotes[bossName] || 0)}표`"></span>
+                                            <!-- [UPDATE] S11(Overtime) 여부에 따라 다른 투표 풀 사용 -->
+                                            <span x-show="stage === 11" x-text="`${(seasonGravityVotes[bossName] || 0)}표`"></span>
+                                            <span x-show="stage < 11" x-text="`${(localGravityVotes[bossName] || 0)}표`"></span>
+                                            
                                             <span class="text-gray-400 ml-1" x-text="`(${getBossProbability(bossName, stageConfig[Math.min(stage - 1, stageConfig.length - 1)].bosses[0])}%)`"></span>
                                         </button>
                                 </template>
@@ -2674,14 +2795,19 @@
                         <button @click="rankingTab = 'main'" class="w-1/2 py-3 rounded-xl text-lg font-bold transition-all" :class="rankingTab === 'main' ? 'bg-purple-600/80 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'">STANDARD</button>
                         <button @click="rankingTab = 'extra'" class="w-1/2 py-3 rounded-xl text-lg font-bold transition-all" :class="rankingTab === 'extra' ? 'bg-teal-600/80 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'">OVERTIME</button>
                     </div>
-                    <div x-show="rankingTab === 'main'" class="space-y-1">
-                        <template x-if="highScores.length === 0">
+
+                    <!-- [REFACTOR] 탭 UI 통합: rankingTab에 따라 데이터 소스만 변경 -->
+                    <div class="space-y-1">
+                        <!-- [REFACTOR] 탭별로 '기록 없음' 메시지 분리 -->
+                        <template x-if="(rankingTab === 'main' && highScores.length === 0) || (rankingTab === 'extra' && extraHighScores.length === 0)">
                             <div class="text-center py-8">
                                 <p class="text-gray-500 text-lg mb-2">NO REKORD</p>
                                 <p class="text-xs text-gray-600">Be the first to register in <span x-text="currentSeason.id"></span>!</p>
                             </div>
                         </template>
-                        <template x-for="(entry, index) in highScores" :key="entry.name + entry.score + index">
+                        
+                        <!-- [REFACTOR] x-for의 대상을 (rankingTab === 'main' ? highScores : extraHighScores)로 변경 -->
+                        <template x-for="(entry, index) in (rankingTab === 'main' ? highScores : extraHighScores)" :key="entry.name + entry.score + index + rankingTab">
                             <div>
                                 <!-- [UPDATE] 레이아웃 변경 (Req 1: 배지 공간) -->
                                 <div class="flex items-center justify-between glass-panel p-4 rounded-2xl text-lg z-10 relative" 
@@ -2729,6 +2855,7 @@
                             </div>
                         </template>
                     </div>
+                    <!-- [REFACTOR] Overtime 탭을 위한 중복 코드 (x-show="rankingTab === 'extra'") 제거 -->
                 </div>
                 <div class="flex-shrink-0 pt-2 bg-black/20 backdrop-blur-md -mx-4 px-4 -mb-4 pb-2 rounded-t-xl z-20">
                     <button @click="gameState = previousGameState; saveSettings()" class="glass-button w-full py-4 text-2xl font-bold rounded-2xl text-white">BACK
