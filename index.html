@@ -1260,21 +1260,19 @@
                     let nextIsEnding = false;
                     let nextIsOvertimeSubmit = false; 
 
-                    if (this.stage < 10) {
-                        this.stage++; 
-                    } else if (this.stage === 10) { 
+                    // [UPDATE] 랭킹 체크 로직을 비동기로 명확하게 변경
+                    
+                    // S10 (Standard) 종료
+                    if (this.stage === 10) { 
                         nextIsEnding = true;
+                        
+                    // S11 (Overtime) 종료
                     } else if (this.stage === 11) {
-                        this.loadExtraHighScores();
-                        // 24위 컷으로 변경
-                        const lowestExtraScore = (this.extraHighScores.length < 24) ? 0 : this.extraHighScores[23].score;
-                        if (this.lastStageScore > lowestExtraScore) { 
-                            nextIsOvertimeSubmit = true;
-                        }
-                        // 본인 기록 확인 (업데이트 가능성 체크)
-                        this.checkExistingRecord('extra', this.lastStageScore).then(exists => {
-                             if (exists) nextIsOvertimeSubmit = true;
-                        });
+                        // [UPDATE] 비동기 처리를 위해 .then() 대신 proceedToNextState 안으로 이동
+                    
+                    // S1-S9 종료
+                    } else if (this.stage < 10) {
+                        this.stage++; 
                     }
                     
                     // 비동기 체크 로직을 위해 상태 전환 로직 수정
@@ -1293,20 +1291,52 @@
                             this.gameState = 'ending';
                             
                             const lowestHighScore = (this.highScores.length < 24) ? 0 : this.highScores[23]?.score || 0;
+                            // [UPDATE] 닉네임/갱신 정보 통합 체크
                             const hasExisting = await this.checkExistingRecord('main', this.totalScore);
                             
-                            if (this.totalScore > lowestHighScore || hasExisting) { 
-                                this.playerName = hasExisting ? hasExisting.name : ''; // 기존 이름 로드
+                            // 1. 점수가 24위 컷보다 높거나
+                            // 2. 'main' 타입을 갱신할 수 있거나
+                            // 3. 'main' 타입은 없지만 'extra' 타입 기록이 있어서 닉네임이 이미 있는 경우 (playerName으로 확인)
+                            if (this.totalScore > lowestHighScore || hasExisting || (this.playerName !== 'SSS' && this.playerName)) { 
+                                // this.playerName은 checkExistingRecord에서 이미 설정됨
                                 this.previousGameState = 'ending'; 
                                 this.gameState = 'submitScore'; 
                             }
 
-                        } else if (nextIsOvertimeSubmit) { 
+                        } else if (this.stage === 11) { // [UPDATE] Overtime 로직을 이곳으로 이동
+                            await this.loadExtraHighScores();
+                            const lowestExtraScore = (this.extraHighScores.length < 24) ? 0 : this.extraHighScores[23].score;
+                            
+                            // [UPDATE] 닉네임/갱신 정보 통합 체크
                             const hasExisting = await this.checkExistingRecord('extra', this.lastStageScore);
-                            this.playerName = hasExisting ? hasExisting.name : '';
-                            this.previousGameState = 'intermission'; 
-                            this.gameState = 'submitScore'; 
+                            
+                            // 1. 점수가 24위 컷보다 높거나
+                            // 2. 'extra' 타입을 갱신할 수 있거나
+                            // 3. 'extra' 타입은 없지만 'main' 타입 기록이 있어서 닉네임이 이미 있는 경우 (playerName으로 확인)
+                            if (this.lastStageScore > lowestExtraScore || hasExisting || (this.playerName !== 'SSS' && this.playerName)) {
+                                nextIsOvertimeSubmit = true;
+                            }
+                            
+                            if (nextIsOvertimeSubmit) { 
+                                // [UPDATE] 닉네임/갱신 정보는 이미 checkExistingRecord에서 설정됨
+                                this.previousGameState = 'intermission'; 
+                                this.gameState = 'submitScore'; 
+                            } else { 
+                                // Overtime을 클리어했지만 랭킹 등록 대상이 아님
+                                this.gameState = 'intermission'; 
+                                // (이하 기존 로직과 동일)
+                                if (this.lastStageGrade === 'F') {
+                                    if (this.currentBGM) {
+                                        this.currentBGM.pause();
+                                        this.currentBGM = null;
+                                    }
+                                }
+                                if (this.lastStageGrade !== 'F') {
+                                    // ... (unlocks) ...
+                                }
+                            }
                         } else { 
+                            // S1-S9 다음 스테이지
                             this.gameState = 'intermission'; 
                             if (this.lastStageGrade === 'F') {
                                 if (this.currentBGM) {
@@ -1326,30 +1356,54 @@
                     proceedToNextState();
                 },
                 
-                // [NEW] 기존 기록 확인 (시즌 + 유저ID)
+                // [UPDATE] 닉네임 교차 조회를 위해 로직 변경
                 async checkExistingRecord(type, currentScore) {
-                    if (!this.activeUserId || this.activeUserId === 'CONNECTING...') return null; // [FIX]
-                    
-                    const q = window.fbQuery(
+                    if (!this.activeUserId || this.activeUserId === 'CONNECTING...') {
+                        this.existingRecord = null;
+                        return null;
+                    }
+
+                    // 1. 이 유저가 이번 시즌에 등록한 *모든* 기록을 찾습니다 (main, extra 둘 다)
+                    const allRecordsQuery = window.fbQuery(
                         window.fbCollection(window.fbDb, "ranks"),
                         window.fbWhere("season", "==", this.currentSeason.id),
-                        window.fbWhere("userId", "==", this.activeUserId),
-                        window.fbWhere("type", "==", type)
+                        window.fbWhere("userId", "==", this.activeUserId)
                     );
                     
-                    const snapshot = await window.fbGetDocs(q);
-                    if (!snapshot.empty) {
-                        const doc = snapshot.docs[0];
-                        const data = doc.data();
-                        this.existingRecord = { id: doc.id, ...data };
-                        // 기존 점수가 더 높으면 갱신 안 함 (하지만 UI는 보여줄 수 있음 - 여기선 갱신 가능한 경우만 리턴)
-                        // 정책: 점수가 더 높을 때만 업데이트
-                        if (currentScore > data.score) {
-                             return data;
-                        }
+                    const snapshot = await window.fbGetDocs(allRecordsQuery);
+                    
+                    if (snapshot.empty) {
+                        // 1A. 이 유저는 이번 시즌 *완전* 신규 랭커입니다.
+                        this.existingRecord = null;
+                        this.playerName = 'SSS'; // 기본값으로 리셋
+                        return null;
                     }
-                    this.existingRecord = null;
-                    return null;
+
+                    // 1B. 이 유저는 'main' 또는 'extra'에 *최소 하나*의 기록이 있습니다.
+                    // *가장 먼저* 찾은 기록에서 닉네임을 가져와 설정합니다 (닉네임 고정)
+                    this.playerName = snapshot.docs[0].data().name;
+
+                    // 2. 이제 *현재 플레이한 'type'*에 해당하는 기록이 있는지, 갱신 가능한지 확인합니다.
+                    const specificDoc = snapshot.docs.find(doc => doc.data().type === type);
+                    
+                    if (specificDoc) {
+                        // 2A. 이 'type'에 대한 기록이 이미 있습니다.
+                        const data = specificDoc.data();
+                        // 갱신 가능한지 점수 체크
+                        if (currentScore > data.score) {
+                            this.existingRecord = { id: specificDoc.id, ...data };
+                            return data; // 갱신 가능
+                        } else {
+                            // 점수가 더 낮으므로 갱신은 아니지만, 기록은 존재함 (표시용)
+                            this.existingRecord = { id: specificDoc.id, ...data };
+                            return data; // (goToIntermission에서 'hasExisting'으로 사용)
+                        }
+                    } else {
+                        // 2B. 이 'type'에 대한 기록은 없습니다 (예: 'main'은 있는데 'extra'는 처음).
+                        // 닉네임은 이미 설정되었으므로, '신규 등록'으로 처리합니다.
+                        this.existingRecord = null;
+                        return null;
+                    }
                 },
 
                 showUnlock(title, message) { 
@@ -2501,17 +2555,20 @@
                 <div class="glass-panel p-8 rounded-3xl w-full flex flex-col items-center">
                     <h2 class="text-4xl font-bold text-yellow-300 text-glow-sm text-center mb-4">NEW HIGH SCORE!</h2>
                     
-                    <template x-if="existingRecord">
+                    <!-- [UPDATE] 닉네임이 이미 설정된 경우 (기록 갱신 또는 교차 등록) -->
+                    <template x-if="existingRecord || (playerName !== 'SSS' && playerName)">
                         <div class="text-center mb-6">
                             <p class="text-gray-400 text-lg tracking-widest mb-2">AGENT CONFIRMED</p>
                             <div class="text-3xl font-black text-white border border-white/20 bg-white/5 px-6 py-3 rounded-xl inline-block">
-                                <span x-text="existingRecord.name"></span>
+                                <span x-text="playerName"></span> <!-- [UPDATE] existingRecord.name -> playerName -->
                             </div>
-                            <p class="text-green-400 text-sm font-bold mt-2">RECORD UPDATE AVAILABLE</p>
+                            <!-- [UPDATE] existingRecord가 있을 때만 '갱신' 문구 표시 -->
+                            <p x-show="existingRecord" class="text-green-400 text-sm font-bold mt-2">RECORD UPDATE AVAILABLE</p>
                         </div>
                     </template>
 
-                    <template x-if="!existingRecord">
+                    <!-- [UPDATE] 완전 신규 랭커일 때만 닉네임 입력 (기본값 'SSS'일 때) -->
+                    <template x-if="!existingRecord && (playerName === 'SSS' || !playerName)">
                         <div class="w-full flex flex-col items-center">
                             <label for="playerNameInput" class="text-lg text-gray-400 mb-2 tracking-widest">CODENAME (3 CHARS)</label>
                             <input type="text" id="playerNameInput" x-model="playerName" @input="playerName = playerName.toUpperCase().replace(/[^A-Z0-9]/g, '')" maxlength="3" class="w-40 h-20 bg-black/50 border-2 border-white/20 text-white text-5xl font-bold text-center rounded-2xl focus:outline-none focus:border-purple-500 mb-8 tracking-widest">
@@ -2760,10 +2817,10 @@
                 </div>
             </div>
 
-            <div x-show="gameState === 'ranking'" x-transition.opacity.duration.500ms class="absolute inset-0 w-full h-full flex flex-col justify-between p-4 z-50 overflow-y-auto bg-black/80 backdrop-blur-md">
-                <div>
+            <div x-show="gameState === 'ranking'" x-transition.opacity.duration.500ms class="absolute inset-0 w-full h-full flex flex-col justify-between p-4 z-50 bg-black/80 backdrop-blur-md">
+                <div class="flex-grow overflow-y-auto scrollbar-thin -mr-4 pr-4">
                     <h2 class="text-4xl font-black text-center mt-6 mb-2 text-white">REKORD ARCHIVE</h2>
-                    <!-- [UPDATE] 시즌 표시 로직 변경 (Req 2, 3) -->
+                    <!-- [UPDATE] 시즌 표시 로GIC (배지 UI/위치 수정) -->
                     <div class="text-center mb-6">
                         <span class="text-lg font-black tracking-widest text-glow-sm" 
                               :style="`color: ${currentSeason.state === 'frozen' ? '#9CA3AF' : currentSeason.color}; text-shadow: 0 0 10px ${currentSeason.state === 'frozen' ? '#9CA3AF' : currentSeason.color}80;`">
@@ -2771,17 +2828,19 @@
                             <!-- 1. 시즌 ID -->
                             <span x-text="currentSeason.id"></span>
                             
-                            <!-- 2. D-Day (시즌 중) -->
+                            <!-- [UPDATE] 2. 시즌 보상 (배지 스타일) -->
+                            <span x-show="currentSeason.state === 'active'" 
+                                  title="Season Reward"
+                                  class="ml-2 inline-flex items-center justify-center w-5 h-5 bg-black/30 rounded-full border border-yellow-300/30 align-middle"
+                                  style="transform: translateY(-1px);"> <!-- 텍스트와 수직 정렬을 위한 미세 조정 -->
+                                <span class="text-xs" x-text="currentSeason.badge"></span>
+                            </span>
+                            
+                            <!-- [UPDATE] 3. D-Day (시즌 중) -->
                             <span x-show="currentSeason.state === 'active'" 
                                   class="ml-2 font-bold text-cyan-400"
                                   :class="currentSeason.dDay === 1 ? 'animate-pulse' : ''"
                                   x-text="`D-${currentSeason.dDay}`">
-                            </span>
-                            
-                            <!-- 3. 시즌 보상 (시즌 중) (Req 2) -->
-                            <span x-show="currentSeason.state === 'active'" 
-                                  class="ml-2 text-xs font-bold bg-white/10 text-yellow-300 px-2 py-0.5 rounded-full border border-yellow-300/30"
-                                  x-text="`REWARD: ${currentSeason.badge}`">
                             </span>
                               
                             <!-- 4. 비시즌 텍스트 (Req 3) -->
@@ -2863,8 +2922,8 @@
                 </div>
             </div>
             <!-- Settings Screen -->
-            <div x-show="gameState === 'settings'" x-transition.opacity.duration.500ms class="absolute inset-0 w-full h-full flex flex-col justify-between p-4 z-50 overflow-y-auto bg-black/80 backdrop-blur-md">
-                <div class="flex-grow">
+            <div x-show="gameState === 'settings'" x-transition.opacity.duration.500ms class="absolute inset-0 w-full h-full flex flex-col justify-between p-4 z-50 bg-black/80 backdrop-blur-md">
+                <div class="flex-grow overflow-y-auto scrollbar-thin -mr-4 pr-4">
                     <h2 class="text-4xl font-black text-center mt-6 mb-8 text-cyan-400 text-glow-sm">SYSTEM CONFIG</h2>
                     
                     <!-- ACCOUNT SECTION [UPDATE] -->
@@ -3232,7 +3291,11 @@
                                 :class="gachaResultCard.type === 'joker_card' ? 'text-purple-400' : 'text-cyan-400'"
                                 x-text="gachaResultCard.type === 'joker_card' ? 'SUPER RARE!' : 'NEW OBJEKT!'">
                             </h3>
-                            <p class="text-xl text-gray-400 mb-8" x-text="`${gachaResultCard.sNumber} / ${gachaResultCard.kor}`"></p>
+                            <!-- [UPDATE] S번호 / 이름 텍스트에 멤버 상징색 적용 -->
+                            <p class="text-xl font-bold mb-8 text-glow-sm"
+                               :style="gachaResultCard.type === 'joker_card' ? 'color: #D8B4FE' : `color: ${gachaResultCard.color}`"
+                               x-text="`${gachaResultCard.sNumber} / ${gachaResultCard.kor}`">
+                            </p>
                             <button @click="confirmGachaResult()" class="glass-button btn-green-glow py-4 px-12 text-2xl font-bold rounded-2xl text-green-400">OK</button>
                         </div>
                     </template>
