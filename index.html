@@ -465,6 +465,74 @@
             { sNumber: 'YS', kor: '예서', eng: 'YeSeo', color: '#AAAAAA', birthday: '08-22', type: 'friend_card' }
         ];
 
+        const GAME_TRANSLATIONS_FALLBACK = {
+            en: {
+                "lang_select": "Language Select",
+                "lang_desc": "Set the display language for in-game text.",
+                
+                "intro_line_0": "Welcome to MH, New Agent.\nYour mission is as follows:",
+                "intro_line_1_a": "Craft the correct Objekt corresponding to the Order and deliver it to the Client.",
+                "intro_line_1_b": "Match the Data pool items below accurately and Input them into the Slot.",
+                "intro_line_1_c": "Remember, all Order Blocks have a strict deadline.",
+                "intro_line_1_d": "Before deployment, you must fully understand the confidential data on the next page.",
+                "intro_line_prompt": "...I don't tolerate mistakes. Are you up to it?",
+                
+                "item_reload_desc": "Purchase additional RELOAD counts. Max capacity is +20 times.",
+                "item_timePlus_desc": "Improves transaction speed, securing an additional 2s block processing time.",
+                "item_scan_desc": "Restores the color hints of Birthday blocks by locating lost data.",
+                "item_amulet_desc": "Moon Goddess Amulet that rarely saves you from wrong data input.",
+                "item_assist_desc": "Incorrect data rarely changes into an easier format to identify.",
+                
+                "boss_S_0": "You're quite capable. Only with this capability can you be my partner.",
+                "boss_S_1": "It was a perfect job. Not just anyone receives an S.",
+                "boss_S_2": "Hmm... I am satisfied with this. I trust you with the next one.",
+                "boss_A_0": "A... Not bad. But aim for S.",
+                "boss_A_1": "Excellent. But keep your guard up.",
+                "boss_A_2": "Well done. Don't forget this feeling.",
+                "boss_B_0": "B... You've passed average. Keep improving.",
+                "boss_B_1": "I still see shortcomings. Work harder.",
+                "boss_B_2": "Hey, New Agent. Show me a better performance tomorrow than today.",
+                "boss_C_0": "C? ...We have a meeting tomorrow.",
+                "boss_C_1": "...Is this your best?",
+                "boss_C_2": "New Agent. Show me a better performance tomorrow than today.",
+                "boss_F_0": "Contract expired. Security access revoked due to underperformance. Report immediately to Headquarters.",
+                "boss_F_1": "Warning: Mission failed. Next stage progress has been suspended by the system.",
+                "boss_F_2": "Contract terminated due to insufficient performance. No further mission assignment.",
+
+                "ending_S_title": "PERFECT AGENT",
+                "ending_S_desc": "You have achieved perfection in everything!\nYou are MH's S-Class Agent.",
+                "ending_A_title": "ELITE AGENT",
+                "ending_A_desc": "Excellent results.\nYou are MH's Elite Agent.",
+                "ending_B_title": "GOOD AGENT",
+                "ending_B_desc": "Mission completed safely.\nWe expect better results next time.",
+                "ending_C_title": "AGENT",
+                "ending_C_desc": "Mission completed.\n...However, the Boss seems unsatisfied.",
+                "ending_F_title": "TERMINATED",
+                "ending_F_desc": "Contract terminated due to failure to meet minimum required performance.",
+                
+                "gravity_desc_prefix": "Vote with COMO to decide",
+                "gravity_desc_stage": "Stage",
+                "gravity_desc_suffix": "which Dimension will perform!",
+
+                "feedback_collect_full": "COLLECT FULL!",
+                "feedback_not_enough_como": "NOT ENOUGH COMO!", 
+                "feedback_amulet_activated": "✨ AMULET ACTIVATED! ✨", 
+                "feedback_joker_acquired": "✨ JOKER(MH) ACQUIRED! ✨",
+                "feedback_card_acquired": " Card Acquired!", 
+                "feedback_grid_available": " GRID AVAILABLE!", 
+                "feedback_grid_complete": "✨ GRID COMPLETE!",
+                "feedback_need_four_cards": "You need 4 or more identical common cards!", 
+                "feedback_spin_failed": "SPIN FAILED... Card Lost!", 
+                "feedback_reload_penalty": "Score Penalty",
+
+                "confirm_return_title": "⚠️ WARNING",
+                "confirm_return_msg": "All current progress will be initialized.\nReturn to title?",
+
+                "playing_next_block_boss": "WARNING: Detecting Dimension...",
+                "playing_next_block_normal": "Receiving next block..."
+            }
+        };
+
         const GAME_BGM_MAP = {
             'start': 'bgm_title.mp3',
             'intro': 'bgm_title.mp3', 
@@ -648,54 +716,54 @@
 
                 // --- METHODS ---
                 init() { 
+                    // [FIX] Firebase SDK 로드 대기 (Race Condition 방지)
+                    // fbCollection이나 fbAuth가 없으면 100ms 뒤에 init을 다시 시도합니다.
+                    if (!window.fbCollection || !window.fbAuth) {
+                        setTimeout(() => this.init(), 100);
+                        return;
+                    }
+
                     this.loadSettings(); 
                     this.loadLanguage(); 
-                    this.calculateSeasonLogic(); // [UPDATE] Must run before auth listener
-                    this.listenForAuth(); // This will trigger loadUserProfile and checkAndGrantSeasonBadge
-                    this.loadMemberData(); 
-                    this.loadHighScores(); 
-                    this.loadExtraHighScores(); 
-                    this.setDynamicHeight(); 
-                    window.addEventListener('resize', this.setDynamicHeight.bind(this)); 
-                    this.initSounds(); 
-                    this.$watch('gameState', (newState) => { 
-                        this.switchBGM(newState);
-                        if (newState === 'intermission') { this.initializeGravityVotes(); } 
-                    }); 
-                    this.switchBGM('start');
-
-                    // [FIX] 중복 등록 방지 로직 추가
-                    // 이미 리스너가 등록되어 있다면 다시 등록하지 않음
-                    if (window._objektRushListenersAdded) return;
-
-                    // [NEW] Pause BGM when tab is not active
-                    window.addEventListener('blur', () => {
-                        // Alpine.js 컴포넌트 외부(window)에서 this에 접근하기 위해 _x_dataStack 등을 사용하거나
-                        // 현재는 this가 game() 인스턴스를 가리키므로 클로저로 작동함.
-                        // 단, 여러 인스턴스가 생기면 문제가 되지만 현재 구조상 괜찮음.
-                        if (this.currentBGM) {
-                            this.currentBGM.pause();
-                        }
-                    });
+                    this.calculateSeasonLogic(); 
                     
-                    // [NEW] Resume BGM when tab becomes active
-                    window.addEventListener('focus', () => {
-                        if (this.currentBGM) {
-                            // Only resume if we are in a state that should have music
-                            const bgmName = this.BGM_MAP[this.gameState];
-                            if (bgmName) {
-                                // Special case: F grade on intermission has no music
-                                if (this.gameState === 'intermission' && this.lastStageGrade === 'F') {
-                                    // Do nothing
-                                } else {
-                                    this.currentBGM.play().catch(() => {});
+                    // [FIX] 중복 리스너 등록 방지
+                    // init이 재실행되더라도 리스너는 한 번만 등록합니다.
+                    if (!window._objektRushInitDone) {
+                        this.listenForAuth(); 
+                        this.loadMemberData(); 
+                        this.loadHighScores(); 
+                        this.loadExtraHighScores(); 
+                        this.setDynamicHeight(); 
+                        window.addEventListener('resize', this.setDynamicHeight.bind(this)); 
+                        this.initSounds(); 
+                        this.$watch('gameState', (newState) => { 
+                            this.switchBGM(newState);
+                            if (newState === 'intermission') { this.initializeGravityVotes(); } 
+                        }); 
+                        this.switchBGM('start');
+
+                        // 탭 비활성화 시 BGM 일시정지
+                        window.addEventListener('blur', () => {
+                            if (this.currentBGM) this.currentBGM.pause();
+                        });
+                        
+                        // 탭 활성화 시 BGM 재개
+                        window.addEventListener('focus', () => {
+                            if (this.currentBGM) {
+                                const bgmName = this.BGM_MAP[this.gameState];
+                                if (bgmName) {
+                                    if (this.gameState === 'intermission' && this.lastStageGrade === 'F') {
+                                        // Do nothing
+                                    } else {
+                                        this.currentBGM.play().catch(() => {});
+                                    }
                                 }
                             }
-                        }
-                    });
+                        });
 
-                    // 리스너 등록 완료 플래그 설정
-                    window._objektRushListenersAdded = true;
+                        window._objektRushInitDone = true;
+                    }
                 },
 
                 // [NEW] 등급 계산 통합 함수 (점수 -> 등급 정보 반환)
@@ -1025,22 +1093,24 @@
                 },
 
                 async loadTranslationData(langCode) {
-                    const fallbackEn = {
-                        lang_select: "Language Select", 
-                        lang_desc: "Set the display language for in-game text.",
-                        intro_line_0: "Welcome to MH, New Agent.\nYour mission is as follows:",
-                        confirm_return_title: "⚠️ WARNING", 
-                        confirm_return_msg: "All current progress will be reset.\nReturn to Title?",
-                    };
-                    
+                    // 1. 코드 내장 데이터(영어)가 있으면 즉시 사용 (네트워크 요청 X)
+                    if (GAME_TRANSLATIONS_FALLBACK[langCode]) {
+                        this.translations = GAME_TRANSLATIONS_FALLBACK[langCode];
+                        console.log(`Loaded embedded translation for: ${langCode}`);
+                        return;
+                    }
+
+                    // 2. 내장 데이터가 없으면 외부 JSON 파일 로드 시도 (한국어 등)
                     try {
                         const response = await fetch(`assets/locales/${langCode}.json`);
                         if (!response.ok) throw new Error('File not found');
                         const externalTranslations = await response.json();
                         this.translations = externalTranslations;
+                        console.log(`Loaded external translation for: ${langCode}`);
                     } catch (error) {
-                        console.error(`Failed to load translation for ${langCode}. Using English fallback.`, error);
-                        this.translations = fallbackEn; 
+                        console.warn(`Failed to load translation for ${langCode}. Using embedded English fallback.`, error);
+                        // 3. 로드 실패 시(로컬 환경, 파일 누락 등) 내장된 영어 데이터로 안전하게 대체
+                        this.translations = GAME_TRANSLATIONS_FALLBACK['en']; 
                     }
                 },
 
