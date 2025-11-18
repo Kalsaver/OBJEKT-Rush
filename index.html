@@ -11,8 +11,6 @@
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js';
         import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js';
-        // [UPDATE] getDoc, setDoc, arrayUnion 추가 (Req 5, 6)
-        // [UPDATE] increment, onSnapshot 추가 (seasonGravity)
         import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, serverTimestamp, where, doc, updateDoc, getDoc, setDoc, arrayUnion, increment, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
 
         // Dimension Link 프로젝트 설정
@@ -30,7 +28,6 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // [NEW] Auth 상태 리스너를 노출
         window.fbOnAuthStateChanged = onAuthStateChanged;
 
         // 익명 로그인 자동 실행
@@ -53,16 +50,14 @@
         window.fbGetDocs = getDocs;
         window.fbServerTimestamp = serverTimestamp;
         window.fbWhere = where; 
-        window.fbGetDoc = getDoc; // [NEW] (Req 5, 6)
-        window.fbSetDoc = setDoc; // [NEW] (Req 5, 6)
-        window.fbArrayUnion = arrayUnion; // [NEW] (Req 5, 6)
-        window.fbIncrement = increment; // [NEW] (seasonGravity)
-        window.fbOnSnapshot = onSnapshot; // [NEW] (seasonGravity)
+        window.fbGetDoc = getDoc;
+        window.fbSetDoc = setDoc;
+        window.fbArrayUnion = arrayUnion;
+        window.fbIncrement = increment;
+        window.fbOnSnapshot = onSnapshot;
         
         console.log("Firebase Initialized");
     </script>
-
-    <style>
 
     <style>
         /* --- LAYOUT & SCROLLBAR --- */
@@ -312,6 +307,7 @@
         }
 
     </style>
+
     <script>
 
         function objektCard(cardData, showEffects = true) {
@@ -336,6 +332,167 @@
                 }
             }
         }
+
+        const GAME_SCORING = { 
+            CORRECT_CARD: 10, 
+            PERFECT_BASE_MULTIPLIER: 5, 
+            BOSS_PERFECT_MULTIPLIER: 10,
+            FAIL_PENALTY: 20, 
+            TIME_OVER_PENALTY: 5, 
+        };
+
+        const GAME_ITEM_INFO = {
+            objekt: { title: 'OBJEKT PACK', desc: '', cost: 1, icon: '🃏' },
+            reload: { title: 'RELOAD CHARGE', desc: 'item_reload_desc', cost: 1, icon: '🔄' },
+            timePlus: { title: 'TIME+ (Lv.1)', desc: 'item_timePlus_desc', cost: 4, icon: '⏳' }, 
+            scan: { title: 'SCAN (Lv.1)', desc: 'item_scan_desc', cost: 4, icon: '🔍' }, 
+            amulet: { title: 'AMULET (Lv.1)', desc: 'item_amulet_desc', cost: 3, icon: '🌙' }, 
+            assist: { title: 'ASSIST (Lv.1)', desc: 'item_assist_desc', cost: 3, icon: '🤝' } 
+        };
+
+        const GAME_DEFAULT_BADGE = '👾';
+
+        const GAME_SEASON_BADGE_TABLE = [
+            '🌊', '💎', '🍓', '🏆', '✨', '🚀', '🌙', '⭐', '❤️', '🍀', '🥦', '⚡️'
+        ];
+
+        const GAME_BOSS_COMMENTS = {
+            S: ["boss_S_0", "boss_S_1", "boss_S_2"],
+            A: ["boss_A_0", "boss_A_1", "boss_A_2"],
+            B: ["boss_B_0", "boss_B_1", "boss_B_2"],
+            C: ["boss_C_0", "boss_C_1", "boss_C_2"],
+            F: ["boss_F_0", "boss_F_1", "boss_F_2"]
+        };
+
+        const GAME_ENDING_MESSAGES = { 
+            S: { title: "ending_S_title", desc: "ending_S_desc", theme: "text-yellow-300" },
+            A: { title: "ending_A_title", desc: "ending_A_desc", theme: "text-green-400" },
+            B: { title: "ending_B_title", desc: "ending_B_desc", theme: "text-blue-400" },
+            C: { title: "ending_C_title", desc: "ending_C_desc", theme: "text-gray-400" },
+            F: { title: "ending_F_title", desc: "ending_F_desc", theme: "text-red-400" } 
+        };
+
+        const GAME_STAGE_CONFIG = [
+            { blocks: 7, decoy: 0, birthdayChance: 0, timeBonus: 2000, bosses: [] }, 
+            { blocks: 7, decoy: 0.1, birthdayChance: 0, timeBonus: 2000, bosses: [] }, 
+            { blocks: 7, decoy: 0.1, birthdayChance: 0.1, timeBonus: 2000, bosses: [] }, 
+            { blocks: 8, decoy: 0.1, birthdayChance: 0.1, timeBonus: 0, bosses: [] }, 
+            { blocks: 8, decoy: 0.2, birthdayChance: 0.1, timeBonus: 0, bosses: ['NXT_GLOW'] }, 
+            { blocks: 8, decoy: 0.2, birthdayChance: 0.1, timeBonus: 0, bosses: ['AAA_KRE'] }, 
+            { blocks: 9, decoy: 0.2, birthdayChance: 0.2, timeBonus: 0, bosses: ['MSNZ'] }, 
+            { blocks: 9, decoy: 0.2, birthdayChance: 0.2, timeBonus: 0, bosses: ['LOVE_EVOL'] }, 
+            { blocks: 9, decoy: 0.3, birthdayChance: 0.2, timeBonus: 0, bosses: ['HATCH_ALPHIE'] }, 
+            { blocks: 10, decoy: 0.3, birthdayChance: 0.2, timeBonus: 0, bosses: ['ARIA_VV'] }, 
+            { blocks: 24, decoy: 0.3, birthdayChance: 0.3, timeBonus: 0, bosses: ['MSNZ'] }
+        ];
+
+        const GAME_BOSS_POOLS = {
+            'NXT_GLOW': ['NXT', 'Glow'],
+            'AAA_KRE': ['AAA', 'KRE'],
+            'LOVE_EVOL': ['LOVE', 'EVOL'],
+            'ARIA_VV': ['Aria', 'VV'],
+            'HATCH_ALPHIE': ['Hatch!', 'Alphie'],
+            'MSNZ': ['Moon', 'Sun', 'Neptune', 'Zenith']
+        };
+
+        const GAME_MEMBER_DATA = [
+            { sNumber: 'S1', kor: '서연', eng: 'SeoYeon', color: '#22AEFF', birthday: '08-06', dimensions: ['KRE', 'LOVE', 'Neptune'], decoysKor: ['서언', '서영', '셔연'], decoysEng: ['SeoYoun', 'SeoYeong', 'SoeYeon'], type: 'member_card' },
+            { sNumber: 'S2', kor: '혜린', eng: 'HyeRin', color: '#9200FF', birthday: '04-12', dimensions: ['AAA', 'LOVE', 'VV', 'Sun'], decoysKor: ['헤린', '혜림', '해린'], decoysEng: ['HyeLin', 'HyeRim', 'HeyRin'], type: 'member_card' },
+            { sNumber: 'S3', kor: '지우', eng: 'JiWoo', color: '#FFF800', birthday: '10-24', dimensions: ['KRE', 'EVOL', 'Aria', 'Hatch!', 'Zenith'], decoysKor: ['지유', '시우', '지후'], decoysEng: ['JiWu', 'JiYu', 'JiWooo'], type: 'member_card' },
+            { sNumber: 'S4', kor: '채연', eng: 'ChaeYeon', color: '#98F21D', birthday: '12-04', dimensions: ['KRE', 'EVOL', 'Aria', 'Hatch!', 'Sun'], decoysKor: ['채언', '채영', '체연'], decoysEng: ['ChaeYoun', 'ChaeYeong', 'CheaYeon'], type: 'member_card' },
+            { sNumber: 'S5', kor: '유연', eng: 'YooYeon', color: '#DB0C74', birthday: '02-09', dimensions: ['AAA', 'EVOL', 'VV', 'Hatch!', 'Alphie', 'Sun'], decoysKor: ['유언', '유영', '우연'], decoysEng: ['YooYoun', 'YooYeong', 'YooYoen'], type: 'member_card' },
+            { sNumber: 'S6', kor: '수민', eng: 'SooMin', color: '#FC83A4', birthday: '10-03', dimensions: ['KRE', 'EVOL', 'Hatch!', 'Zenith'], decoysKor: ['수밈', '수빈', '슈민'], decoysEng: ['SooMean', 'SooBin', 'SuMin'], type: 'member_card' },
+            { sNumber: 'S7', kor: '나경', eng: 'NaKyoung', color: '#6799A0', birthday: '10-13', dimensions: ['AAA', 'EVOL', 'VV', 'Neptune'], decoysKor: ['나겅', '나겸', '다경'], decoysEng: ['NaKyeong', 'NaKyoum', 'NaKyuong'], type: 'member_card' },
+            { sNumber: 'S8', kor: '유빈', eng: 'YuBin', color: '#FFE3E2', birthday: '02-03', dimensions: ['AAA', 'LOVE', 'VV', 'Zenith'], decoysKor: ['유빔', '유민', '우빈'], decoysEng: ['YuBean', 'YuBim', 'YooBin'], type: 'member_card' },
+            { sNumber: 'S9', kor: '카에데', eng: 'Kaede', color: '#FFC935', birthday: '12-20', dimensions: ['LOVE', 'Aria', 'VV', 'Moon'], decoysKor: ['카에대', '카애데', '가에데'], decoysEng: ['Kaedeh', 'Kaebe', 'Keade'], type: 'member_card' },
+            { sNumber: 'S10', kor: '다현', eng: 'DaHyun', color: '#FF9AD6', birthday: '01-08', dimensions: ['LOVE', 'Aria', 'Neptune'], decoysKor: ['다헌', '다형', '다연'], decoysEng: ['DaHyeon', 'DaHyung', 'DaHuyn'], type: 'member_card' },
+            { sNumber: 'S11', kor: '코토네', eng: 'Kotone', color: '#FFDE00', birthday: '03-10', dimensions: ['EVOL', 'VV', 'Hatch!', 'Alphie', 'Neptune'], decoysKor: ['코토내', '코도네', '고토네'], decoysEng: ['Kotoneh', 'Katone', 'Kotonae'], type: 'member_card' },
+            { sNumber: 'S12', kor: '연지', eng: 'YeonJi', color: '#5974FF', birthday: '01-08', dimensions: ['EVOL', 'VV', 'Zenith'], decoysKor: ['연시', '영지', '언지'], decoysEng: ['YeonJee', 'YeongJi', 'YoenJi'], type: 'member_card' },
+            { sNumber: 'S13', kor: '니엔', eng: 'Nien', color: '#FF953F', birthday: '06-02', dimensions: ['LOVE', 'Aria', 'VV', 'Alphie', 'Neptune'], decoysKor: ['니앤', '니옌', '리엔'], decoysEng: ['Niaen', 'Niyen', 'Nein'], type: 'member_card' },
+            { sNumber: 'S14', kor: '소현', eng: 'SoHyun', color: '#1222B5', birthday: '10-13', dimensions: ['LOVE', 'VV', 'Moon'], decoysKor: ['소헌', '소형', '소연'], decoysEng: ['SoHyeon', 'SoHyung', 'SoHuyn'], type: 'member_card' },
+            { sNumber: 'S15', kor: '신위', eng: 'Xinyu', color: '#D51313', birthday: '05-25', dimensions: ['LOVE', 'VV', 'Sun'], decoysKor: ['신이', '시니', '신유'], decoysEng: ['Xinyui', 'Xinyi', 'Xinuy'], type: 'member_card' },
+            { sNumber: 'S16', kor: '마유', eng: 'Mayu', color: '#FE8E76', birthday: '05-12', dimensions: ['EVOL', 'Hatch!', 'Sun'], decoysKor: ['마우', '미유', '마위'], decoysEng: ['Mayoo', 'Miyu', 'Mayuu'], type: 'member_card' },
+            { sNumber: 'S17', kor: '린', eng: 'Lynn', color: '#AC62B7', birthday: '04-12', dimensions: ['NXT', 'VV', 'Alphie', 'Moon'], decoysKor: ['링', '림', '릴'], decoysEng: ['Lyn', 'Lym', 'Rynn'], type: 'member_card' },
+            { sNumber: 'S18', kor: '주빈', eng: 'JooBin', color: '#B7F54C', birthday: '01-16', dimensions: ['NXT', 'Zenith'], decoysKor: ['주빔', '주민', '쥬빈'], decoysEng: ['JooBean', 'JooBim', 'JuBin'], type: 'member_card' },
+            { sNumber: 'S19', kor: '하연', eng: 'HaYeon', color: '#52D9BB', birthday: '08-01', dimensions: ['NXT', 'Alphie', 'Zenith'], decoysKor: ['하언', '하영', '햐연'], decoysEng: ['HaYoun', 'HaYeong', 'HaYoen'], type: 'member_card' },
+            { sNumber: 'S20', kor: '시온', eng: 'ShiOn', color: '#FF428A', birthday: '04-03', dimensions: ['NXT', 'Hatch!', 'Alphie', 'Moon'], decoysKor: ['시은', '시옴', '시욘'], decoysEng: ['SiOn', 'ShiOm', 'ShiOne'], type: 'member_card' },
+            { sNumber: 'S21', kor: '채원', eng: 'ChaeWon', color: '#C7A3E0', birthday: '05-02', dimensions: ['Glow', 'Hatch!', 'Alphie', 'Sun'], decoysKor: ['채윈', '채웡', '체원'], decoysEng: ['ChaeOne', 'ChaeWong', 'CheaWon'], type: 'member_card' },
+            { sNumber: 'S22', kor: '설린', eng: 'Sullin', color: '#7BBA8D', birthday: '11-30', dimensions: ['Glow', 'Moon'], decoysKor: ['설륀', '설림', '선린'], decoysEng: ['Seollin', 'Sullim', 'Sulin'], type: 'member_card' },
+            { sNumber: 'S23', kor: '서아', eng: 'SeoAh', color: '#CFF3FF', birthday: '06-11', dimensions: ['Glow', 'Neptune'], decoysKor: ['서이', '시아', '서하'], decoysEng: ['SeoA', 'SeeAh', 'SoeAh'], type: 'member_card' },
+            { sNumber: 'S24', kor: '지연', eng: 'JiYeon', color: '#FFAB62', birthday: '02-13', dimensions: ['Glow', 'VV', 'Alphie', 'Moon'], decoysKor: ['지언', '지영', '시연'], decoysEng: ['JiYoun', 'JiYeong', 'JiYoen'], type: 'member_card' }
+        ];
+
+        const GAME_DIMENSION_DATA = [ 
+            { sNumber: 'AAA', color: '#333333', textColor: '#F5F5F5' }, 
+            { sNumber: 'KRE', color: '#EEAFA7', textColor: '#333333' }, 
+            { sNumber: 'LOVE', color: '#FFF3EB', textColor: '#FF4499' }, 
+            { sNumber: 'EVOL', color: '#0D549A', textColor: '#F5F5F5' }, 
+            { sNumber: 'NXT', color: '#0C324D', textColor: '#F5F5F5' }, 
+            { sNumber: 'Glow', color: '#DEFBE9', textColor: '#333333' }, 
+            { sNumber: 'Aria', color: '#C8A2C8', textColor: '#F5F5F5' }, 
+            { sNumber: 'VV', color: '#947CAD', textColor: '#F5F5F5' }, 
+            { sNumber: 'Hatch!', color: '#EECBE1', textColor: '#333333' }, 
+            { sNumber: 'Alphie', color: '#6C81AC', textColor: '#333333' }, 
+            { sNumber: 'Moon', color: '#333333', textColor: '#7BBA8D' }, 
+            { sNumber: 'Sun', color: '#333333', textColor: '#D51313' }, 
+            { sNumber: 'Neptune', color: '#333333', textColor: '#22AEFF' }, 
+            { sNumber: 'Zenith', color: '#333333', textColor: '#52D9BB' }
+        ];
+
+        const GAME_MODHAUS_DATA = [
+            { sNumber: 'X', kor: '실패', eng: 'Fail', color: '#F5F5F5', birthday: '08-08', type: 'fail_card' },
+            { sNumber: 'MH', kor: '제이든', eng: 'Jaden', color: '#333333', birthday: '05-01', type: 'joker_card' }
+        ];
+
+        const GAME_ARTMS_DATA = [
+            { sNumber: 'A1', kor: '희진', eng: 'HeeJin', color: '#ED008F', birthday: '10-19', type: 'goddess_card' },
+            { sNumber: 'A2', kor: '하슬', eng: 'HaSeul', color: '#01C261', birthday: '08-18', type: 'goddess_card' },
+            { sNumber: 'A3', kor: '김립', eng: 'Kim Lip', color: '#DB3547', birthday: '02-10', type: 'goddess_card' },
+            { sNumber: 'A4', kor: '진솔', eng: 'JinSoul', color: '#1724A7', birthday: '06-13', type: 'goddess_card' },
+            { sNumber: 'A5', kor: '최리', eng: 'Choerry', color: '#5B2A93', birthday: '06-04', type: 'goddess_card' }
+        ];
+
+        const GAME_FRIEND_DATA = [
+            { sNumber: 'BB', kor: '비비', eng: 'BIBI', color: '#AAAAAA', birthday: '09-27', type: 'friend_card' },
+            { sNumber: 'HS', kor: '형서', eng: 'HyungSeo', color: '#AAAAAA', birthday: '06-25', type: 'friend_card' },
+            { sNumber: 'JM', kor: '지민', eng: 'JiMin', color: '#AAAAAA', birthday: '11-25', type: 'friend_card' },
+            { sNumber: 'BE', kor: '보은', eng: 'BoEun', color: '#AAAAAA', birthday: '02-11', type: 'friend_card' },
+            { sNumber: 'YA', kor: '윤아', eng: 'YunAh', color: '#AAAAAA', birthday: '01-15', type: 'friend_card' },
+            { sNumber: 'MK', kor: '모카', eng: 'Moka', color: '#AAAAAA', birthday: '10-08', type: 'friend_card' },
+            { sNumber: 'DH', kor: '도희', eng: 'DoHee', color: '#AAAAAA', birthday: '12-09', type: 'friend_card' },
+            { sNumber: 'SJ', kor: '승주', eng: 'SeungJoo', color: '#AAAAAA', birthday: '09-24', type: 'friend_card' },
+            { sNumber: 'HR', kor: '하루나', eng: 'Haruna', color: '#AAAAAA', birthday: '01-30', type: 'friend_card' },
+            { sNumber: 'YS', kor: '예서', eng: 'YeSeo', color: '#AAAAAA', birthday: '08-22', type: 'friend_card' }
+        ];
+
+        const GAME_BGM_MAP = {
+            'start': 'bgm_title.mp3',
+            'intro': 'bgm_title.mp3', 
+            'ranking': 'bgm_title.mp3', 
+            'settings': 'bgm_title.mp3', 
+            'intermission': 'bgm_intermission.mp3',
+            'playing': 'bgm_playing.mp3',
+            'boss_playing': 'bgm_boss.mp3', 
+            'gacha': 'bgm_intermission.mp3', 
+            'submitScore': 'bgm_intermission.mp3',
+            'ending': 'bgm_ending.mp3'
+        };
+
+        const GAME_BANNED_NAMES = ['SEX', 'ASS', 'FCK', 'FUK', 'KKK', 'NIG', 'GAY', 'TIT', 'CNT', 'ADM', 'SYS'];
+
+        const GAME_SEASON_NAMES = ['Atom', 'Binary', 'Cream', 'Divine', 'Ever'];
+        const GAME_SEASON_COLORS = {'Atom': '#FFDD00', 'Binary': '#00FF00', 'Cream': '#FF7477', 'Divine': '#B400FF', 'Ever': '#33ECFD'};
+
+        const GAME_BASE_YEAR = 2025;
+        const GAME_BASE_MONTH = 10;
+
+        const GAME_GRADE_CRITERIA = [
+            { grade: 'S', min: 65, bonus: 3, endingType: 'S' },
+            { grade: 'A', min: 50, bonus: 2, endingType: 'A' },
+            { grade: 'B', min: 35, bonus: 1, endingType: 'B' },
+            { grade: 'C', min: 20, bonus: 0, endingType: 'C' },
+            { grade: 'F', min: -999, bonus: 0, endingType: 'F' } // 기본값 (Fail)
+        ];
 
         function game() {
             return {
@@ -403,9 +560,8 @@
                 resetConfirmModal: { show: false, type: 'all' },
                 feedback: { show: false, message: '', type: 'correct', timer: null },
                 suggestionModal: { show: false, message: '', isSending: false },
-                badgeSelectModal: { show: false }, // [NEW] Badge Modal (Req 5)
-                accountModalShow: false, // [NEW] Account Key Modal
-
+                badgeSelectModal: { show: false },
+                accountModalShow: false,
                 // Gacha
                 gachaState: 'ready', 
                 gachaResultCard: null,
@@ -433,7 +589,6 @@
                     return localStorage.getItem('objektRushCustomUid') || this.currentUid;
                 },
                 
-                // [NEW] User Profile & Badge System (Req 5)
                 userProfile: {
                     unlockedBadges: [],
                     selectedBadge: '👾'
@@ -441,9 +596,9 @@
                 isProfileLoading: true,
                 
                 // Gravity Vote
-                localGravityVotes: {}, // [RENAME] S1-S10 로컬 투표용
-                seasonGravityVotes: {}, // [NEW] S11(Overtime) 글로벌 시즌 투표용
-                seasonGravityListener: null, // [NEW] S11 실시간 리스너 구독 해제용
+                localGravityVotes: {},
+                seasonGravityVotes: {},
+                seasonGravityListener: null,
                 
                 // Audio
                 sounds: {}, 
@@ -453,17 +608,11 @@
                 sfxVolume: 0.5, 
 
                 // Season & Time
-                currentSeason: { id: '', name: '', cycle: 0, color: '#FFFFFF', state: 'active', dDay: 0, badge: '👾', frozenText: '' }, // [UPDATE] (Req 2, 3)
-                seasonNames: ['Atom', 'Binary', 'Cream', 'Divine', 'Ever'],
-                seasonColors: {
-                    'Atom': '#FFDD00',
-                    'Binary': '#00FF00',
-                    'Cream': '#FF7477',
-                    'Divine': '#B400FF',
-                    'Ever': '#33ECFD'
-                },
-                baseYear: 2025, // [NEW] (Req 3, 4)
-                baseMonth: 10, // [NEW] (Req 3, 4) 0-11 (10 = November)
+                currentSeason: { id: '', name: '', cycle: 0, color: '#FFFFFF', state: 'active', dDay: 0, badge: '👾', frozenText: '' }, 
+                seasonNames: GAME_SEASON_NAMES,
+                seasonColors: GAME_SEASON_COLORS,
+                baseYear: GAME_BASE_YEAR, 
+                baseMonth: GAME_BASE_MONTH,
 
                 // Language
                 currentLang: 'en', 
@@ -479,65 +628,17 @@
                 translations: {}, 
 
                 // Banned Nicknames (Simple Blacklist)
-                bannedNames: ['SEX', 'ASS', 'FCK', 'FUK', 'KKK', 'NIG', 'GAY', 'TIT', 'CNT', 'ADM', 'SYS'],
+                bannedNames: GAME_BANNED_NAMES,
                 
                 // --- CONSTANTS ---
-                DEFAULT_BADGE: '👾', // [NEW] (Req 1, 5)
-                // [NEW] Badge Reward Table (Loops automatically) (Req 4)
-                SEASON_BADGE_TABLE: [
-                    '🌊', '💎', '🍓', '🏆', '✨', '🚀', '🌙', '⭐', '❤️', '🍀', '🥦', '⚡️'
-                ],
-                SCORING: { 
-                    CORRECT_CARD: 10, 
-                    PERFECT_BASE_MULTIPLIER: 5, // [RENAME & UPDATE]
-                    BOSS_PERFECT_MULTIPLIER: 10,  // [NEW]
-                    FAIL_PENALTY: 20, // [UPDATE] 30 -> 20
-                },
-                // [UPDATE] Icon Refactor
-                ITEM_INFO: {
-                    objekt: { title: 'OBJEKT PACK', desc: '', cost: 1, icon: '🃏' },
-                    reload: { title: 'RELOAD CHARGE', desc: 'item_reload_desc', cost: 1, icon: '🔄' },
-                    timePlus: { title: 'TIME+ (Lv.1)', desc: 'item_timePlus_desc', cost: 4, icon: '⏳' }, 
-                    scan: { title: 'SCAN (Lv.1)', desc: 'item_scan_desc', cost: 4, icon: '🔍' }, 
-                    amulet: { title: 'AMULET (Lv.1)', desc: 'item_amulet_desc', cost: 3, icon: '🌙' }, 
-                    assist: { title: 'ASSIST (Lv.1)', desc: 'item_assist_desc', cost: 3, icon: '🤝' } 
-                },
-                BOSS_COMMENTS: {
-                    S: ["boss_S_0", "boss_S_1", "boss_S_2"],
-                    A: ["boss_A_0", "boss_A_1", "boss_A_2"],
-                    B: ["boss_B_0", "boss_B_1", "boss_B_2"],
-                    C: ["boss_C_0", "boss_C_1", "boss_C_2"],
-                    F: ["boss_F_0", "boss_F_1", "boss_F_2"]
-                },
-                ENDING_MESSAGES: { 
-                    S: { title: "ending_S_title", desc: "ending_S_desc", theme: "text-yellow-300" },
-                    A: { title: "ending_A_title", desc: "ending_A_desc", theme: "text-green-400" },
-                    B: { title: "ending_B_title", desc: "ending_B_desc", theme: "text-blue-400" },
-                    C: { title: "ending_C_title", desc: "ending_C_desc", theme: "text-gray-400" },
-                    F: { title: "ending_F_title", desc: "ending_F_desc", theme: "text-red-400" } 
-                },
+                DEFAULT_BADGE: GAME_DEFAULT_BADGE,
+                SEASON_BADGE_TABLE: GAME_SEASON_BADGE_TABLE,
+                ITEM_INFO: GAME_ITEM_INFO, // 기존 유지
+                BOSS_COMMENTS: GAME_BOSS_COMMENTS,
+                ENDING_MESSAGES: GAME_ENDING_MESSAGES,
                 
-                stageConfig: [
-                    { blocks: 7, decoy: 0, birthdayChance: 0, timeBonus: 2000, bosses: [] }, 
-                    { blocks: 7, decoy: 0.1, birthdayChance: 0, timeBonus: 2000, bosses: [] }, 
-                    { blocks: 7, decoy: 0.1, birthdayChance: 0.1, timeBonus: 2000, bosses: [] }, 
-                    { blocks: 8, decoy: 0.1, birthdayChance: 0.1, timeBonus: 0, bosses: [] }, 
-                    { blocks: 8, decoy: 0.2, birthdayChance: 0.1, timeBonus: 0, bosses: ['NXT_GLOW'] }, 
-                    { blocks: 8, decoy: 0.2, birthdayChance: 0.1, timeBonus: 0, bosses: ['AAA_KRE'] }, 
-                    { blocks: 9, decoy: 0.2, birthdayChance: 0.2, timeBonus: 0, bosses: ['MSNZ'] }, // [RENAME]
-                    { blocks: 9, decoy: 0.2, birthdayChance: 0.2, timeBonus: 0, bosses: ['LOVE_EVOL'] }, 
-                    { blocks: 9, decoy: 0.3, birthdayChance: 0.2, timeBonus: 0, bosses: ['HATCH_ALPHIE'] }, 
-                    { blocks: 10, decoy: 0.3, birthdayChance: 0.2, timeBonus: 0, bosses: ['ARIA_VV'] }, 
-                    { blocks: 24, decoy: 0.3, birthdayChance: 0.3, timeBonus: 0, bosses: ['MSNZ'] } // [RENAME]
-                ],
-                bossPools: {
-                    'NXT_GLOW': ['NXT', 'Glow'],
-                    'AAA_KRE': ['AAA', 'KRE'],
-                    'LOVE_EVOL': ['LOVE', 'EVOL'],
-                    'ARIA_VV': ['Aria', 'VV'],
-                    'HATCH_ALPHIE': ['Hatch!', 'Alphie'],
-                    'MSNZ': ['Moon', 'Sun', 'Neptune', 'Zenith'] // [RENAME]
-                },
+                stageConfig: GAME_STAGE_CONFIG,
+                bossPools: GAME_BOSS_POOLS,
 
                 memberData: [],
                 dimensionData: [],
@@ -563,12 +664,20 @@
                     }); 
                     this.switchBGM('start');
 
+                    // [FIX] 중복 등록 방지 로직 추가
+                    // 이미 리스너가 등록되어 있다면 다시 등록하지 않음
+                    if (window._objektRushListenersAdded) return;
+
                     // [NEW] Pause BGM when tab is not active
                     window.addEventListener('blur', () => {
+                        // Alpine.js 컴포넌트 외부(window)에서 this에 접근하기 위해 _x_dataStack 등을 사용하거나
+                        // 현재는 this가 game() 인스턴스를 가리키므로 클로저로 작동함.
+                        // 단, 여러 인스턴스가 생기면 문제가 되지만 현재 구조상 괜찮음.
                         if (this.currentBGM) {
                             this.currentBGM.pause();
                         }
                     });
+                    
                     // [NEW] Resume BGM when tab becomes active
                     window.addEventListener('focus', () => {
                         if (this.currentBGM) {
@@ -584,13 +693,17 @@
                             }
                         }
                     });
+
+                    // 리스너 등록 완료 플래그 설정
+                    window._objektRushListenersAdded = true;
                 },
-                
-                // [UPDATE] Auth 리스너가 Profile Load와 Badge Grant를 트리거
-                
-                // [UPDATE] Auth 리스너가 Profile Load와 Badge Grant를 트리거
+
+                // [NEW] 등급 계산 통합 함수 (점수 -> 등급 정보 반환)
+                calcGrade(averageScore) {
+                    return GAME_GRADE_CRITERIA.find(c => averageScore >= c.min) || GAME_GRADE_CRITERIA[GAME_GRADE_CRITERIA.length - 1];
+                },
+
                 listenForAuth() {
-                    // [FIX] v10.307: Firebase 모듈이 로드될 때까지 200ms 간격으로 재시도 (Race Condition 수정)
                     if (!window.fbOnAuthStateChanged) {
                         console.warn("Auth listener not ready, retrying in 200ms...");
                         setTimeout(() => this.listenForAuth(), 200);
@@ -605,7 +718,6 @@
                             }
                             console.log("Auth State Changed, UID set:", user.uid);
                             
-                            // [NEW] Auth가 준비되면 프로필 로드 및 배지 체크 실행 (Req 5, 6)
                             this.loadUserProfile();
                             this.checkAndGrantSeasonBadge();
 
@@ -618,13 +730,11 @@
                     // 수동 UID가 이미 있다면 즉시 반영
                     if (localStorage.getItem('objektRushCustomUid')) {
                         this.currentUid = localStorage.getItem('objektRushCustomUid');
-                        // [NEW] 수동 UID가 있어도 프로필 로드 및 배지 체크 실행
                         this.loadUserProfile();
                         this.checkAndGrantSeasonBadge();
                     }
                 },
 
-                // [NEW] 유저 프로필 로드 (없으면 생성) (Req 5)
                 async loadUserProfile() {
                     if (!this.activeUserId || this.activeUserId === 'CONNECTING...') {
                         console.warn("loadUserProfile called before activeUserId is ready.");
@@ -639,7 +749,6 @@
                         
                         if (docSnap.exists()) {
                             this.userProfile = docSnap.data();
-                            // [NEW] 기본 배지가 없으면 추가 (이전 유저들 호환)
                             if (!this.userProfile.unlockedBadges || !this.userProfile.unlockedBadges.includes(this.DEFAULT_BADGE)) {
                                 this.grantBadge(this.DEFAULT_BADGE, false); // 피드백 없이 조용히 추가
                             }
@@ -660,7 +769,6 @@
                     }
                 },
 
-                // [NEW] 시즌 랭커 배지 자동 지급 (Req 6)
                 async checkAndGrantSeasonBadge() {
                     if (!this.activeUserId || this.activeUserId === 'CONNECTING...') return;
                     // 비시즌 기간이 아니면 실행 안 함
@@ -705,7 +813,6 @@
                     }
                 },
 
-                // [NEW] 배지 지급 헬퍼 함수 (Req 6)
                 async grantBadge(badgeEmoji, showFeedbackMsg = true) {
                     if (!this.activeUserId || this.activeUserId === 'CONNECTING...') return;
                     // 중복 지급 방지 ( grantBadge가 loadUserProfile보다 먼저 호출될 수 있으므로, userProfile.unlockedBadges 대신 getDoc을 한번 더 함)
@@ -748,7 +855,6 @@
                     }
                 },
 
-                // [NEW] 대표 배지 선택 모달 (Req 5)
                 openBadgeModal() {
                     this.playSound('click');
                     this.badgeSelectModal.show = true;
@@ -776,8 +882,7 @@
                         this.closeBadgeModal();
                     }
                 },
-                
-                // [NEW] 시즌 정보 계산 헬퍼 (Req 4)
+
                 getSeasonInfo(monthsPassed) {
                     if (monthsPassed < 0) monthsPassed = 0; // 첫 시즌 이전 방지
 
@@ -805,7 +910,6 @@
                     };
                 },
 
-                // [UPDATE] 시즌 로직 (Req 3: 시작 시간 10시, 비시즌 문구 변경)
                 calculateSeasonLogic() {
                     const now = new Date();
                     const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
@@ -873,7 +977,6 @@
                     this.suggestionModal.show = false;
                 },
 
-                // [NEW] Account Key Modal Methods
                 openAccountModal() {
                     this.playSound('click');
                     this.accountModalShow = true;
@@ -894,7 +997,7 @@
                             timestamp: window.fbServerTimestamp(),
                             userAgent: navigator.userAgent,
                             lang: this.currentLang,
-                            version: 'v10.311' // [UPDATE] 버전 업데이트
+                            version: 'v10.311'
                         });
                         
                         this.showFeedback('MESSAGE SENT!', 'correct');
@@ -966,24 +1069,23 @@
                 },
                 
                 // --- User ID Management ---
-                copyUid() {
+                async copyUid() {
                     if (!this.activeUserId || this.activeUserId === 'CONNECTING...') return;
                     
-                    // [FIX] 구형 복사 방식 (iframe 호환)
-                    const textArea = document.createElement("textarea");
-                    textArea.value = this.activeUserId;
-                    textArea.style.position = "fixed";  // 방해되지 않게
-                    textArea.style.left = "-9999px";
-                    document.body.appendChild(textArea);
-                    textArea.focus();
-                    textArea.select();
+                    // 브라우저 지원 여부 확인 (안전 장치)
+                    if (!navigator.clipboard) {
+                        this.showFeedback('NOT SUPPORTED', 'incorrect');
+                        return;
+                    }
+
                     try {
-                        document.execCommand('copy');
+                        // 신형 비동기 복사 API 사용
+                        await navigator.clipboard.writeText(this.activeUserId);
                         this.showFeedback('UID COPIED!', 'correct');
                     } catch (err) {
+                        console.error('Failed to copy:', err);
                         this.showFeedback('COPY FAILED', 'incorrect');
                     }
-                    document.body.removeChild(textArea);
                 },
                 
                 loadUid() {
@@ -1004,18 +1106,7 @@
                     setTimeout(() => location.reload(), 1000);
                 },
 
-                BGM_MAP: {
-                    'start': 'bgm_title.mp3',
-                    'intro': 'bgm_title.mp3', 
-                    'ranking': 'bgm_title.mp3', 
-                    'settings': 'bgm_title.mp3', 
-                    'intermission': 'bgm_intermission.mp3',
-                    'playing': 'bgm_playing.mp3',
-                    'boss_playing': 'bgm_boss.mp3', 
-                    'gacha': 'bgm_intermission.mp3', 
-                    'submitScore': 'bgm_intermission.mp3',
-                    'ending': 'bgm_ending.mp3'
-                },
+                BGM_MAP: GAME_BGM_MAP,
                 
                 switchBGM(newState) {
                     if (this.currentBGM) {
@@ -1090,30 +1181,13 @@
                 },
                 setDynamicHeight() { const vh = window.innerHeight * 0.01; document.documentElement.style.setProperty('--vh', `${vh}px`); },
                 loadMemberData() {
-                    this.memberData = [ { sNumber: 'S1', kor: '서연', eng: 'SeoYeon', color: '#22AEFF', birthday: '08-06', dimensions: ['KRE', 'LOVE', 'Neptune'], decoysKor: ['서언', '서영', '셔연'], decoysEng: ['SeoYoun', 'SeoYeong', 'SoeYeon'], type: 'member_card' }, { sNumber: 'S2', kor: '혜린', eng: 'HyeRin', color: '#9200FF', birthday: '04-12', dimensions: ['AAA', 'LOVE', 'VV', 'Sun'], decoysKor: ['헤린', '혜림', '해린'], decoysEng: ['HyeLin', 'HyeRim', 'HeyRin'], type: 'member_card' }, { sNumber: 'S3', kor: '지우', eng: 'JiWoo', color: '#FFF800', birthday: '10-24', dimensions: ['KRE', 'EVOL', 'Aria', 'Hatch!', 'Zenith'], decoysKor: ['지유', '시우', '지후'], decoysEng: ['JiWu', 'JiYu', 'JiWooo'], type: 'member_card' }, { sNumber: 'S4', kor: '채연', eng: 'ChaeYeon', color: '#98F21D', birthday: '12-04', dimensions: ['KRE', 'EVOL', 'Aria', 'Hatch!', 'Sun'], decoysKor: ['채언', '채영', '체연'], decoysEng: ['ChaeYoun', 'ChaeYeong', 'CheaYeon'], type: 'member_card' }, { sNumber: 'S5', kor: '유연', eng: 'YooYeon', color: '#DB0C74', birthday: '02-09', dimensions: ['AAA', 'EVOL', 'VV', 'Hatch!', 'Alphie', 'Sun'], decoysKor: ['유언', '유영', '우연'], decoysEng: ['YooYoun', 'YooYeong', 'YooYoen'], type: 'member_card' }, { sNumber: 'S6', kor: '수민', eng: 'SooMin', color: '#FC83A4', birthday: '10-03', dimensions: ['KRE', 'EVOL', 'Hatch!', 'Zenith'], decoysKor: ['수밈', '수빈', '슈민'], decoysEng: ['SooMean', 'SooBin', 'SuMin'], type: 'member_card' }, { sNumber: 'S7', kor: '나경', eng: 'NaKyoung', color: '#6799A0', birthday: '10-13', dimensions: ['AAA', 'EVOL', 'VV', 'Neptune'], decoysKor: ['나겅', '나겸', '다경'], decoysEng: ['NaKyeong', 'NaKyoum', 'NaKyuong'], type: 'member_card' }, { sNumber: 'S8', kor: '유빈', eng: 'YuBin', color: '#FFE3E2', birthday: '02-03', dimensions: ['AAA', 'LOVE', 'VV', 'Zenith'], decoysKor: ['유빔', '유민', '우빈'], decoysEng: ['YuBean', 'YuBim', 'YooBin'], type: 'member_card' }, { sNumber: 'S9', kor: '카에데', eng: 'Kaede', color: '#FFC935', birthday: '12-20', dimensions: ['LOVE', 'Aria', 'VV', 'Moon'], decoysKor: ['카에대', '카애데', '가에데'], decoysEng: ['Kaedeh', 'Kaebe', 'Keade'], type: 'member_card' }, { sNumber: 'S10', kor: '다현', eng: 'DaHyun', color: '#FF9AD6', birthday: '01-08', dimensions: ['LOVE', 'Aria', 'Neptune'], decoysKor: ['다헌', '다형', '다연'], decoysEng: ['DaHyeon', 'DaHyung', 'DaHuyn'], type: 'member_card' }, { sNumber: 'S11', kor: '코토네', eng: 'Kotone', color: '#FFDE00', birthday: '03-10', dimensions: ['EVOL', 'VV', 'Hatch!', 'Alphie', 'Neptune'], decoysKor: ['코토내', '코도네', '고토네'], decoysEng: ['Kotoneh', 'Katone', 'Kotonae'], type: 'member_card' }, { sNumber: 'S12', kor: '연지', eng: 'YeonJi', color: '#5974FF', birthday: '01-08', dimensions: ['EVOL', 'VV', 'Zenith'], decoysKor: ['연시', '영지', '언지'], decoysEng: ['YeonJee', 'YeongJi', 'YoenJi'], type: 'member_card' }, { sNumber: 'S13', kor: '니엔', eng: 'Nien', color: '#FF953F', birthday: '06-02', dimensions: ['LOVE', 'Aria', 'VV', 'Alphie', 'Neptune'], decoysKor: ['니앤', '니옌', '리엔'], decoysEng: ['Niaen', 'Niyen', 'Nein'], type: 'member_card' }, { sNumber: 'S14', kor: '소현', eng: 'SoHyun', color: '#1222B5', birthday: '10-13', dimensions: ['LOVE', 'VV', 'Moon'], decoysKor: ['소헌', '소형', '소연'], decoysEng: ['SoHyeon', 'SoHyung', 'SoHuyn'], type: 'member_card' }, { sNumber: 'S15', kor: '신위', eng: 'Xinyu', color: '#D51313', birthday: '05-25', dimensions: ['LOVE', 'VV', 'Sun'], decoysKor: ['신이', '시니', '신유'], decoysEng: ['Xinyui', 'Xinyi', 'Xinuy'], type: 'member_card' }, { sNumber: 'S16', kor: '마유', eng: 'Mayu', color: '#FE8E76', birthday: '05-12', dimensions: ['EVOL', 'Hatch!', 'Sun'], decoysKor: ['마우', '미유', '마위'], decoysEng: ['Mayoo', 'Miyu', 'Mayuu'], type: 'member_card' }, { sNumber: 'S17', kor: '린', eng: 'Lynn', color: '#AC62B7', birthday: '04-12', dimensions: ['NXT', 'VV', 'Alphie', 'Moon'], decoysKor: ['링', '림', '릴'], decoysEng: ['Lyn', 'Lym', 'Rynn'], type: 'member_card' }, { sNumber: 'S18', kor: '주빈', eng: 'JooBin', color: '#B7F54C', birthday: '01-16', dimensions: ['NXT', 'Zenith'], decoysKor: ['주빔', '주민', '쥬빈'], decoysEng: ['JooBean', 'JooBim', 'JuBin'], type: 'member_card' }, { sNumber: 'S19', kor: '하연', eng: 'HaYeon', color: '#52D9BB', birthday: '08-01', dimensions: ['NXT', 'Alphie', 'Zenith'], decoysKor: ['하언', '하영', '햐연'], decoysEng: ['HaYoun', 'HaYeong', 'HaYoen'], type: 'member_card' }, { sNumber: 'S20', kor: '시온', eng: 'ShiOn', color: '#FF428A', birthday: '04-03', dimensions: ['NXT', 'Hatch!', 'Alphie', 'Moon'], decoysKor: ['시은', '시옴', '시욘'], decoysEng: ['SiOn', 'ShiOm', 'ShiOne'], type: 'member_card' }, { sNumber: 'S21', kor: '채원', eng: 'ChaeWon', color: '#C7A3E0', birthday: '05-02', dimensions: ['Glow', 'Hatch!', 'Alphie', 'Sun'], decoysKor: ['채윈', '채웡', '체원'], decoysEng: ['ChaeOne', 'ChaeWong', 'CheaWon'], type: 'member_card' }, { sNumber: 'S22', kor: '설린', eng: 'Sullin', color: '#7BBA8D', birthday: '11-30', dimensions: ['Glow', 'Moon'], decoysKor: ['설륀', '설림', '선린'], decoysEng: ['Seollin', 'Sullim', 'Sulin'], type: 'member_card' }, { sNumber: 'S23', kor: '서아', eng: 'SeoAh', color: '#CFF3FF', birthday: '06-11', dimensions: ['Glow', 'Neptune'], decoysKor: ['서이', '시아', '서하'], decoysEng: ['SeoA', 'SeeAh', 'SoeAh'], type: 'member_card' }, { sNumber: 'S24', kor: '지연', eng: 'JiYeon', color: '#FFAB62', birthday: '02-13', dimensions: ['Glow', 'VV', 'Alphie', 'Moon'], decoysKor: ['지언', '지영', '시연'], decoysEng: ['JiYoun', 'JiYeong', 'JiYoen'], type: 'member_card' }
-                    ];
-                    this.dimensionData = [ 
-                        { sNumber: 'AAA', color: '#333333', textColor: '#F5F5F5' }, 
-                        { sNumber: 'KRE', color: '#EEAFA7', textColor: '#333333' }, 
-                        { sNumber: 'LOVE', color: '#FFF3EB', textColor: '#FF4499' }, 
-                        { sNumber: 'EVOL', color: '#0D549A', textColor: '#F5F5F5' }, 
-                        { sNumber: 'NXT', color: '#0C324D', textColor: '#F5F5F5' }, 
-                        { sNumber: 'Glow', color: '#DEFBE9', textColor: '#333333' }, 
-                        { sNumber: 'Aria', color: '#C8A2C8', textColor: '#F5F5F5' }, 
-                        { sNumber: 'VV', color: '#947CAD', textColor: '#F5F5F5' }, 
-                        { sNumber: 'Hatch!', color: '#EECBE1', textColor: '#333333' }, 
-                        { sNumber: 'Alphie', color: '#6C81AC', textColor: '#333333' }, 
-                        { sNumber: 'Moon', color: '#333333', textColor: '#7BBA8D' }, 
-                        { sNumber: 'Sun', color: '#333333', textColor: '#D51313' }, 
-                        { sNumber: 'Neptune', color: '#333333', textColor: '#22AEFF' }, 
-                        { sNumber: 'Zenith', color: '#333333', textColor: '#52D9BB' }
-                    ];
-                    this.modhausData = [ { sNumber: 'X', kor: '실패', eng: 'Fail', color: '#F5F5F5', birthday: '08-08', type: 'fail_card' }, { sNumber: 'MH', kor: '제이든', eng: 'Jaden', color: '#333333', birthday: '05-01', type: 'joker_card' } ];
-                    this.artmsData = [ { sNumber: 'A1', kor: '희진', eng: 'HeeJin', color: '#ED008F', birthday: '10-19', type: 'goddess_card' }, { sNumber: 'A2', kor: '하슬', eng: 'HaSeul', color: '#01C261', birthday: '08-18', type: 'goddess_card' }, { sNumber: 'A3', kor: '김립', eng: 'Kim Lip', color: '#DB3547', birthday: '02-10', type: 'goddess_card' }, { sNumber: 'A4', kor: '진솔', eng: 'JinSoul', color: '#1724A7', birthday: '06-13', type: 'goddess_card' }, { sNumber: 'A5', kor: '최리', eng: 'Choerry', color: '#5B2A93', birthday: '06-04', type: 'goddess_card' } ];
-                    this.friendData = [ { sNumber: 'BB', kor: '비비', eng: 'BIBI', color: '#AAAAAA', birthday: '09-27', type: 'friend_card' }, { sNumber: 'HS', kor: '형서', eng: 'HyungSeo', color: '#AAAAAA', birthday: '06-25', type: 'friend_card' }, { sNumber: 'JM', kor: '지민', eng: 'JiMin', color: '#AAAAAA', birthday: '11-25', type: 'friend_card' }, { sNumber: 'BE', kor: '보은', eng: 'BoEun', color: '#AAAAAA', birthday: '02-11', type: 'friend_card' }, { sNumber: 'YA', eng: 'YunAh', kor: '윤아', color: '#AAAAAA', birthday: '01-15', type: 'member_card' }, { sNumber: 'MK', kor: '모카', eng: 'Moka', color: '#AAAAAA', birthday: '10-08', type: 'member_card' }, { sNumber: 'DH', kor: '도희', eng: 'DoHee', color: '#AAAAAA', birthday: '12-09', type: 'member_card' }, { sNumber: 'SJ', kor: '승주', eng: 'SeungJoo', color: '#AAAAAA', birthday: '09-24', type: 'member_card' }, { sNumber: 'HR', eng: 'Haruna', kor: '하루나', color: '#AAAAAA', birthday: '01-30', type: 'member_card' }, { sNumber: 'YS', kor: '예서', eng: 'YeSeo', color: '#AAAAAA', birthday: '08-22', type: 'member_card' } ];
+                    this.memberData = GAME_MEMBER_DATA;
+                    this.dimensionData = GAME_DIMENSION_DATA;
+                    this.modhausData = GAME_MODHAUS_DATA;
+                    this.artmsData = GAME_ARTMS_DATA;
+                    this.friendData = GAME_FRIEND_DATA;
                 },
 
-                // [UPDATE] 랭킹 로드: 24위까지 확장
                 async loadHighScores() {
                     const q = window.fbQuery(
                         window.fbCollection(window.fbDb, "ranks"), 
@@ -1210,15 +1284,26 @@
                     const configIndex = Math.min(this.stage - 1, this.stageConfig.length - 1); 
                     const config = this.stageConfig[configIndex]; 
                     if (!config) { console.error(`Stage config for stage ${this.stage} not found.`); return; }
-                    this.targetScore = 0; this.totalBlocksPerStage = config.blocks + config.bosses.length; this.decoyRatio = config.decoy;
+                    this.targetScore = 0; 
+                    this.totalBlocksPerStage = config.blocks + config.bosses.length; 
+                    this.decoyRatio = config.decoy;
                     
                     this.reloadCount = 10 + this.reloadBoost; 
                     this.currentReloadPenalty = 5; 
                     
-                    this.score = 0; this.blocksCompleted = 0; 
-                    this.chainCount = 0; this.consecutivePerfects = 0;
+                    this.score = 0; 
+                    this.blocksCompleted = 0; 
+                    this.chainCount = 0; 
+                    this.consecutivePerfects = 0;
+
+                    this.stageNormalBlockScore = 0;
+                    this.stageNormalBlockCount = 0;
+
                     this.nextBlockWillBeBoss = false; 
-                    this.currentBlock = null; this.completedCards = []; this.selectedData = null; this.selectedInventoryCard = null; 
+                    this.currentBlock = null; 
+                    this.completedCards = []; 
+                    this.selectedData = null; 
+                    this.selectedInventoryCard = null; 
                     
                     this.startCountdownSequence(); 
                 },
@@ -1262,18 +1347,13 @@
                     
                     this.intermissionSpinCount = 0; 
                     
-                    // [UPDATE] S-Rank Fix: Calculate average based on normal blocks only
+                    // [UPDATE] 평균 점수 계산
                     const averageScore = (this.stageNormalBlockCount > 0) ? (this.stageNormalBlockScore / this.stageNormalBlockCount) : 0; 
                     
-                    let grade = 'C'; 
-                    this.bonusComo = 0;
-                    
-                    // [UPDATE] New Grade Criteria
-                    if (averageScore >= 65) { grade = 'S'; this.bonusComo = 3; }       // S: 65+
-                    else if (averageScore >= 50) { grade = 'A'; this.bonusComo = 2; }  // A: 50 - 64.9
-                    else if (averageScore >= 35) { grade = 'B'; this.bonusComo = 1; }  // B: 35 - 49.9
-                    else if (averageScore >= 20) { grade = 'C'; this.bonusComo = 0; }  // C: 20 - 34.9
-                    else { grade = 'F'; this.bonusComo = 0; }                           // F: < 20
+                    // [REFACTOR] 통합 함수 사용으로 if-else 체인 제거
+                    const gradeInfo = this.calcGrade(averageScore);
+                    const grade = gradeInfo.grade;
+                    this.bonusComo = gradeInfo.bonus;
                     
                     this.lastStageGrade = grade; 
                     this.como += this.comoEarned + this.bonusComo;
@@ -1284,7 +1364,7 @@
                             grade: grade, 
                             score: this.score,
                             maxBlocks: this.totalBlocksPerStage,
-                            avgScore: averageScore // [Debug] 평균 점수 기록
+                            avgScore: averageScore 
                         });
                     }
                     
@@ -1297,72 +1377,54 @@
                     let nextIsEnding = false;
                     let nextIsOvertimeSubmit = false; 
 
-                    // [UPDATE] 랭킹 체크 로직을 비동기로 명확하게 변경
-                    
-                    // S10 (Standard) 종료
                     if (this.stage === 10) { 
                         nextIsEnding = true;
-                        
-                    // S11 (Overtime) 종료
                     } else if (this.stage === 11) {
-                        // [UPDATE] 비동기 처리를 위해 .then() 대신 proceedToNextState 안으로 이동
-                    
-                    // S1-S9 종료
+                        // Overtime logic
                     } else if (this.stage < 10) {
                         this.stage++; 
                     }
                     
-                    // 비동기 체크 로직을 위해 상태 전환 로직 수정
                     const proceedToNextState = async () => {
                          if (nextIsEnding) {
                             this.finalScore = this.totalScore; 
                             await this.loadHighScores();
-                            const totalBlocksInGame = 89; // [NOTE] This logic might need review
+                            
+                            // [FIX] 상수로 박혀있던 총 블록 수를 설정값(S1~S10)에서 동적으로 계산하도록 수정
+                            // GAME_STAGE_CONFIG의 0번부터 9번 인덱스(S1~S10)까지의 (blocks + bosses) 합계
+                            const totalBlocksInGame = GAME_STAGE_CONFIG.slice(0, 10).reduce((sum, stage) => sum + stage.blocks + stage.bosses.length, 0);
+                            
                             const finalAverage = this.totalScore / totalBlocksInGame;
                             
-                            // [UPDATE] Final ending type logic
-                            if (finalAverage >= 65) this.endingType = 'S'; // S
-                            else if (finalAverage >= 50) this.endingType = 'A'; // A
-                            else if (finalAverage >= 35) this.endingType = 'B'; // B
-                            else this.endingType = 'C'; // C
+                            // [REFACTOR] 엔딩 등급 산정 로직도 통합 함수 사용
+                            const finalGradeInfo = this.calcGrade(finalAverage);
+                            this.endingType = finalGradeInfo.endingType;
                             
                             this.gameState = 'ending';
                             
                             const lowestHighScore = (this.highScores.length < 24) ? 0 : this.highScores[23]?.score || 0;
-                            // [UPDATE] 닉네임/갱신 정보 통합 체크
                             const hasExisting = await this.checkExistingRecord('main', this.totalScore);
                             
-                            // 1. 점수가 24위 컷보다 높거나
-                            // 2. 'main' 타입을 갱신할 수 있거나
-                            // 3. 'main' 타입은 없지만 'extra' 타입 기록이 있어서 닉네임이 이미 있는 경우 (playerName으로 확인)
                             if (this.totalScore > lowestHighScore || hasExisting || (this.playerName !== 'SSS' && this.playerName)) { 
-                                // this.playerName은 checkExistingRecord에서 이미 설정됨
                                 this.previousGameState = 'ending'; 
                                 this.gameState = 'submitScore'; 
                             }
 
-                        } else if (this.stage === 11) { // [UPDATE] Overtime 로직을 이곳으로 이동
+                        } else if (this.stage === 11) { 
                             await this.loadExtraHighScores();
                             const lowestExtraScore = (this.extraHighScores.length < 24) ? 0 : this.extraHighScores[23].score;
                             
-                            // [UPDATE] 닉네임/갱신 정보 통합 체크
                             const hasExisting = await this.checkExistingRecord('extra', this.lastStageScore);
                             
-                            // 1. 점수가 24위 컷보다 높거나
-                            // 2. 'extra' 타입을 갱신할 수 있거나
-                            // 3. 'extra' 타입은 없지만 'main' 타입 기록이 있어서 닉네임이 이미 있는 경우 (playerName으로 확인)
                             if (this.lastStageScore > lowestExtraScore || hasExisting || (this.playerName !== 'SSS' && this.playerName)) {
                                 nextIsOvertimeSubmit = true;
                             }
                             
                             if (nextIsOvertimeSubmit) { 
-                                // [UPDATE] 닉네임/갱신 정보는 이미 checkExistingRecord에서 설정됨
                                 this.previousGameState = 'intermission'; 
                                 this.gameState = 'submitScore'; 
                             } else { 
-                                // Overtime을 클리어했지만 랭킹 등록 대상이 아님
                                 this.gameState = 'intermission'; 
-                                // (이하 기존 로직과 동일)
                                 if (this.lastStageGrade === 'F') {
                                     if (this.currentBGM) {
                                         this.currentBGM.pause();
@@ -1370,7 +1432,7 @@
                                     }
                                 }
                                 if (this.lastStageGrade !== 'F') {
-                                    // ... (unlocks) ...
+                                    // ... (unlocks handled below) ...
                                 }
                             }
                         } else { 
@@ -1393,8 +1455,7 @@
                     };
                     proceedToNextState();
                 },
-                
-                // [UPDATE] 닉네임 교차 조회를 위해 로직 변경
+
                 async checkExistingRecord(type, currentScore) {
                     if (!this.activeUserId || this.activeUserId === 'CONNECTING...') {
                         this.existingRecord = null;
@@ -1474,14 +1535,12 @@
 
                 async submitScore() {
                     if (this.currentSeason.state === 'frozen') {
-                        this.showFeedback('SEASON CLOSED', 'incorrect'); // [UPDATE] (Req 3)
+                        this.showFeedback('SEASON CLOSED', 'incorrect');
                         this.playSound('fail');
                         return;
                     }
-                    
-                    // [NEW] 닉네임 검증 (신규 등록일 경우만)
+
                     if (!this.existingRecord) {
-                        // [UPDATE] 3글자 강제 (0, 1, 2글자 모두 차단)
                         if (this.playerName.length !== 3) {
                              this.showFeedback('MUST BE 3 CHARS', 'incorrect');
                              this.playSound('fail');
@@ -1537,7 +1596,7 @@
                         userId: this.activeUserId, // [IMPORTANT] User ID 저장
                         timestamp: window.fbServerTimestamp(),
                         type: (this.stage === 11) ? 'extra' : 'main',
-                        profileBadge: this.userProfile.selectedBadge || this.DEFAULT_BADGE // [NEW] 대표 배지 저장 (Req 5)
+                        profileBadge: this.userProfile.selectedBadge || this.DEFAULT_BADGE
                     };
 
                     try {
@@ -1568,7 +1627,6 @@
                 restartGame() { 
                     this.playSound('click'); 
                     this.returnConfirmModal.show = false; 
-                    // [NEW] 시즌 투표 리스너 구독 해제
                     if (this.seasonGravityListener) {
                         this.seasonGravityListener(); // Unsubscribe
                         this.seasonGravityListener = null;
@@ -1596,7 +1654,6 @@
                         if (this.bossPools[poolKey]) {
                             const pool = this.bossPools[poolKey];
                             
-                            // [UPDATE] S11(Overtime) 여부에 따라 다른 투표 풀 사용
                             let gravityPool;
                             if (this.stage === 11) {
                                 gravityPool = this.seasonGravityVotes;
@@ -1714,17 +1771,17 @@
                         }
                         
                         if (isMatch) { 
-                            totalScore += this.SCORING.CORRECT_CARD; 
+                            totalScore += GAME_SCORING.CORRECT_CARD; 
                             correctCount++; 
                         }
                         else if (card.type === 'joker_card' && blockChecklist.length > 0) { 
-                            totalScore += this.SCORING.CORRECT_CARD; 
+                            totalScore += GAME_SCORING.CORRECT_CARD; 
                             correctCount++; 
                             blockChecklist.splice(0, 1); 
                         }
                         else {
                             wrongCount++;
-                            if (card.type === 'fail_card') { penalty += this.SCORING.FAIL_PENALTY; }
+                            if (card.type === 'fail_card') { penalty += GAME_SCORING.FAIL_PENALTY; }
                         }
                     }
                     
@@ -1733,37 +1790,40 @@
                     const isPerfect = !isTimeOver && wrongCount === 0 && this.completedCards.length === block.members.length;
                     
                     if (isPerfect) {
-                        // [UPDATE] Use SCORING constants for perfect bonus
                         let perfectBonus;
                         if (block.isBoss) {
-                            // 보스: 멤버 수 * BOSS_PERFECT_MULTIPLIER (10)
-                            perfectBonus = this.SCORING.BOSS_PERFECT_MULTIPLIER * block.members.length; 
+                            perfectBonus = GAME_SCORING.BOSS_PERFECT_MULTIPLIER * block.members.length; 
                         } else {
-                            // 일반: 멤버 수 * PERFECT_BASE_MULTIPLIER (5)
-                            perfectBonus = this.SCORING.PERFECT_BASE_MULTIPLIER * block.members.length;
+                            perfectBonus = GAME_SCORING.PERFECT_BASE_MULTIPLIER * block.members.length;
                         }
                         totalScore += perfectBonus; 
                         
-                        // [UPDATE] Boss blocks now count towards chain
                         this.consecutivePerfects++;
                         this.chainCount = Math.max(0, this.consecutivePerfects - 1); 
                         if (this.chainCount > 0) { 
-                            // [UPDATE] Chain bonus is * 5
                             const chainBonus = this.chainCount * 5; 
                             totalScore += chainBonus; 
                             this.playSound('chain'); 
                         }
                     } else { 
-                        // [UPDATE] Boss block failure also resets chain
                         this.consecutivePerfects = 0; 
                         this.chainCount = 0; 
                     }
                     
+                    if (isTimeOver) {
+                        totalScore -= GAME_SCORING.TIME_OVER_PENALTY;
+                    }
+
+                    if (!block.isBoss) {
+                        this.stageNormalBlockScore = (this.stageNormalBlockScore || 0) + totalScore;
+                        this.stageNormalBlockCount = (this.stageNormalBlockCount || 0) + 1;
+                    }
+
                     this.score = Math.max(0, this.score + totalScore);
                     
                     let feedbackMsg = '';
                     if (isTimeOver) {
-                        feedbackMsg = `${correctCount} / ${block.members.length}`;
+                        feedbackMsg = `TIME OVER (-${GAME_SCORING.TIME_OVER_PENALTY})`;
                         this.playSound('fail'); 
                     } else if (isPerfect) {
                         feedbackMsg = `+${totalScore}`;
@@ -2158,7 +2218,6 @@
                 },
                 getGravityVotes(poolKey) { return this.bossPools[poolKey] || []; },
                 
-                // [UPDATE] Overtime(S11) 글로벌 투표, S1-S10 로컬 투표 분리
                 initializeGravityVotes() {
                     // this.stage는 '다음' 스테이지를 의미함
                     
@@ -2217,7 +2276,7 @@
                         }
                     }
                 },
-                // [UPDATE] Overtime(S11) 글로벌 투표, S1-S10 로컬 투표 분리
+
                 voteForBoss(bossName) { 
                     if (this.como < 1) {
                         this.showFeedback('NOT ENOUGH COMO!', 'incorrect');
@@ -2251,7 +2310,7 @@
                         this.localGravityVotes[bossName] = (this.localGravityVotes[bossName] || 0) + 1;
                     }
                 },
-                // [UPDATE] Overtime(S11) 글로벌 투표, S1-S10 로컬 투표 분리
+
                 getBossProbability(bossName, poolKey) {
                     const pool = this.bossPools[poolKey]; 
                     if (!pool) return 0;
@@ -3007,10 +3066,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- [REMOVED] Original ACCOUNT SECTION -->
-                    
-                    <!-- [REMOVED] Original AGENT BADGE SECTION -->
                     
                     <!-- LANGUAGE SECTION -->
                     <div class="glass-panel p-5 rounded-2xl mb-6 border-l-4 border-l-cyan-500">
@@ -3202,22 +3257,24 @@
                                 </template>
                             </div>
                         </div>
-                        
+
                         <div class="p-3 bg-white/5 rounded-xl">
-                            <h4 class="text-lg font-bold text-gray-300 mb-2">STAGE GRADES (S1 - S10)</h4>
+                            <!-- 제목 변경: S1 -> ST1 -->
+                            <h4 class="text-lg font-bold text-gray-300 mb-2">STAGE GRADES (ST1 - ST10)</h4>
                             <div class="grid grid-cols-5 gap-2 text-center">
                                 <template x-for="entry in stageGrades" :key="entry.stage">
                                     <div class="flex flex-col p-1 rounded-lg bg-black/30 border border-white/10">
-                                        <span class="text-xs text-gray-400 font-bold">S<span x-text="entry.stage"></span></span>
+                                        <!-- 표기 변경: S -> ST -->
+                                        <span class="text-xs text-gray-400 font-bold">ST<span x-text="entry.stage"></span></span>
                                         <span class="text-2xl font-black" 
-                                              :class="{
-                                                  'text-yellow-300': entry.grade === 'S',
-                                                  'text-green-400': entry.grade === 'A',
-                                                  'text-blue-400': entry.grade === 'B',
-                                                  'text-gray-500': entry.grade === 'C',
-                                                  'text-red-500': entry.grade === 'F'
-                                              }" 
-                                              x-text="entry.grade">
+                                            :class="{
+                                                'text-yellow-300': entry.grade === 'S',
+                                                'text-green-400': entry.grade === 'A',
+                                                'text-blue-400': entry.grade === 'B',
+                                                'text-gray-500': entry.grade === 'C',
+                                                'text-red-500': entry.grade === 'F'
+                                            }" 
+                                            x-text="entry.grade">
                                         </span>
                                     </div>
                                 </template>
