@@ -615,7 +615,7 @@
                     stage: 0,
                     score: 0,
                     maxBlocks: 0,
-                    clearedBlocks: 0, // 시간 초과 없이 완료된 블록 수 (processBlockComplete에서 증가)
+                    clearedBlocks: 0,
                     baseScore: 0,
                     perfectBonusScore: 0,
                     chainBonusScore: 0,
@@ -624,7 +624,21 @@
                     reloadPenalty: 0,
                     maxChain: 0,
                     perfectCount: 0,
-                    unlockMessage: '', // 기존 개방 알림
+                    unlockMessage: '',
+                },
+
+                // [NEW] Ending Final Report Data (엔딩 화면용 집계 데이터)
+                finalReport: {
+                    baseScore: 0,
+                    perfectBonusScore: 0,
+                    chainBonusScore: 0,
+                    failPenalty: 0,
+                    timeOverPenalty: 0,
+                    reloadPenalty: 0,
+                    maxChain: 0,
+                    perfectCount: 0,
+                    clearedBlocks: 0,
+                    totalBlocks: 0
                 },
 
                 // Data & Slots
@@ -1471,14 +1485,28 @@
                     // 방금 클리어한 스테이지 번호
                     const clearedStage = this.stage;
 
-                    // [MODIFIED] StageGrades는 최종 Grade 기록용으로만 사용 (S1~S10)
+                    // [MODIFIED] 1. 리포트 데이터를 먼저 생성합니다. (순서 변경됨)
+                    const reportData = this.generateReportData(clearedStage, this.score, this.currentStageBlockDetails); 
+
+                    // [MODIFIED] 2. 생성된 상세 리포트 데이터를 stageGrades에 함께 저장합니다. (엔딩 집계용)
                     if (clearedStage <= 10) {
                         this.stageGrades.push({ 
                             stage: clearedStage, 
                             grade: grade, 
                             score: this.score,
                             maxBlocks: this.totalBlocksPerStage,
-                            avgScore: averageScore 
+                            avgScore: averageScore,
+                            // 상세 데이터 추가 저장
+                            baseScore: reportData.baseScore,
+                            perfectBonusScore: reportData.perfectBonusScore,
+                            chainBonusScore: reportData.chainBonusScore,
+                            failPenalty: reportData.failPenalty,
+                            timeOverPenalty: reportData.timeOverPenalty,
+                            reloadPenalty: reportData.reloadPenalty,
+                            clearedBlocks: reportData.clearedBlocks,
+                            maxBlocksDetail: reportData.maxBlocks,
+                            maxChain: reportData.maxChain,
+                            perfectCount: reportData.perfectCount
                         });
                     }
                     
@@ -1489,32 +1517,44 @@
                     this.consecutivePerfects = 0; 
                     this.chainCount = 0;
                     
-                    const isOvertimeSubmit = clearedStage === 11; // S11을 클리어한 경우
-                    const isEndingStage = clearedStage === 10; // S10을 클리어한 경우
+                    const isOvertimeSubmit = clearedStage === 11; 
+                    const isEndingStage = clearedStage === 10; 
 
-                    // 1. 리포트 데이터 생성 (현재 스테이지 번호를 전달)
-                    const reportData = this.generateReportData(clearedStage, this.score, this.currentStageBlockDetails); 
-
-                    // 2. 모달 표시
+                    // 3. 모달 표시
                     this.showStageReport(reportData);
 
                     let nextIsEnding = false;
                     if (isEndingStage) { 
                         nextIsEnding = true;
-                    } else if (clearedStage < 10 || isOvertimeSubmit) {
-                        // [FIX] 다음 스테이지로의 이동은 인터미션 로직이 끝난 후, 다음 버튼을 눌렀을 때 진행해야 하므로,
-                        // 이 곳에서 this.stage++를 호출하지 않습니다. (Stage Report를 띄우는 동안은 clearedStage를 유지해야 함)
-                    }
+                    } 
                     
                     const proceedToNextState = async () => {
-                        // [FIX] 다음 스테이지 번호 업데이트는 여기서 수행 (모달을 닫는 버튼의 @click 이벤트에서 호출)
                         if (!isEndingStage && !isOvertimeSubmit) {
                             this.stage++;
                         }
                         
-                        // ... (이하 제출 로직 유지) ...
                         if (nextIsEnding) {
                             this.finalScore = this.totalScore; 
+                            
+                            // [NEW] 엔딩용 최종 리포트 집계 (stageGrades 배열 합산)
+                            this.finalReport = this.stageGrades.reduce((acc, curr) => {
+                                acc.baseScore += (curr.baseScore || 0);
+                                acc.perfectBonusScore += (curr.perfectBonusScore || 0);
+                                acc.chainBonusScore += (curr.chainBonusScore || 0);
+                                acc.failPenalty += (curr.failPenalty || 0);
+                                acc.timeOverPenalty += (curr.timeOverPenalty || 0);
+                                acc.reloadPenalty += (curr.reloadPenalty || 0);
+                                acc.clearedBlocks += (curr.clearedBlocks || 0);
+                                acc.totalBlocks += (curr.maxBlocksDetail || 0);
+                                acc.perfectCount += (curr.perfectCount || 0);
+                                acc.maxChain = Math.max(acc.maxChain, (curr.maxChain || 0)); // 최대 체인은 합산이 아닌 최대값 갱신
+                                return acc;
+                            }, {
+                                baseScore: 0, perfectBonusScore: 0, chainBonusScore: 0,
+                                failPenalty: 0, timeOverPenalty: 0, reloadPenalty: 0,
+                                clearedBlocks: 0, totalBlocks: 0, perfectCount: 0, maxChain: 0
+                            });
+
                             await this.loadHighScores();
                             const totalBlocksInGame = GAME_STAGE_CONFIG.slice(0, 10).reduce((sum, stage) => sum + stage.blocks + stage.bosses.length, 0);
                             const finalAverage = this.totalScore / totalBlocksInGame;
@@ -1539,11 +1579,9 @@
                                 this.gameState = 'intermission'; 
                             }
                         } else { 
-                            // S1-S9 다음 스테이지 (stage++는 이미 위에서 처리됨)
                             this.gameState = 'intermission'; 
                         }
                         
-                        // F 등급 시 BGM 중단 로직
                         if (this.gameState === 'intermission' && this.lastStageGrade === 'F') {
                             if (this.currentBGM) {
                                 this.currentBGM.pause();
@@ -1552,7 +1590,6 @@
                         }
                     };
                     
-                    // [MODIFIED] 모달이 닫히면 다음 상태로 진행되도록 로직 수정 (closeStageReport에서 호출)
                     window.closeStageReportAndProceed = proceedToNextState.bind(this);
                 },
 
@@ -1783,11 +1820,24 @@
                             await window.fbUpdateDoc(docRef, scoreData);
                             this.showFeedback('RECORD UPDATED!', 'correct');
                         } else {
-                            // Create New (교차 등록 포함)
+                            // Create New
                             await window.fbAddDoc(window.fbCollection(window.fbDb, "ranks"), scoreData);
-                            this.showFeedback('AGENT REGISTERED!', 'correct'); // 피드백 메시지 구체화
+                            this.showFeedback('AGENT REGISTERED!', 'correct');
                         }
+
+                        // [NEW] 프로필에 시즌 코드네임 스탬프 찍기 (저비용 구현)
+                        // 랭킹 등록에 성공했다면, 내 프로필에 '이번 시즌 활동명'을 기록합니다.
+                        const userProfileRef = window.fbDoc(window.fbDb, "userProfiles", this.activeUserId);
+                        // userProfile이 없을 수도 있으니 setDoc에 merge 옵션 사용
+                        await window.fbSetDoc(userProfileRef, { 
+                            lastActiveSeason: this.currentSeason.id,
+                            seasonCodename: this.playerName 
+                        }, { merge: true });
                         
+                        // 로컬 데이터도 즉시 갱신하여 UI 반영
+                        this.userProfile.lastActiveSeason = this.currentSeason.id;
+                        this.userProfile.seasonCodename = this.playerName;
+
                         setTimeout(() => {
                             if (this.stage === 11) {
                                 this.gameState = 'intermission';
@@ -3288,69 +3338,109 @@
                 <div class="flex-grow overflow-y-auto scrollbar-thin -mr-4 pr-4">
                     <h2 class="text-4xl font-black text-center mt-6 mb-8 text-cyan-400 text-glow-sm">SYSTEM CONFIG</h2>
                     
-                    <div class="glass-panel p-5 rounded-2xl mb-6 border-l-4 border-l-cyan-500">
-                        <h3 class="text-xl font-bold text-gray-300 mb-4">AGENT PROFILE</h3>
-
-                        <div class="flex justify-between items-center">
-                            <div>
-                                <h4 class="text-lg font-bold text-gray-300">AGENT BADGE</h4>
-                                <p class="text-sm text-gray-400 mt-1">Your selected icon for the Rekord.</p>
-                            </div>
-                            <div class="flex items-center space-x-3">
-                                <div class="flex items-center justify-center bg-black/50 border border-white/10 rounded-full w-16 h-16">
-                                    <span class="text-4xl" x-text="userProfile.selectedBadge || DEFAULT_BADGE"></span>
+                    <div class="glass-panel p-5 rounded-2xl mb-6 border border-white/10 border-l-4 border-l-cyan-500 relative overflow-hidden group">
+                        <div class="absolute top-0 right-0 p-2 opacity-30 pointer-events-none">
+                            <span class="text-[0.6rem] border border-white/20 px-1 font-mono tracking-widest text-gray-500">MH-ID CARD</span>
+                        </div>
+                        
+                        <div class="flex items-center space-x-5">
+                            <div class="flex-shrink-0 relative cursor-pointer" @click="openBadgeModal()">
+                                <div class="w-20 h-24 bg-gradient-to-b from-gray-800 to-black rounded-lg border border-white/20 flex items-center justify-center overflow-hidden relative shadow-inner">
+                                     <span class="text-5xl filter drop-shadow-lg" x-text="userProfile.selectedBadge || DEFAULT_BADGE"></span>
                                 </div>
-                                <button @click="openBadgeModal()" class="glass-button px-4 py-2 rounded-xl text-sm font-bold text-cyan-300">Change</button>
+                                
+                                <div class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-[#09090b] transition-colors duration-500" 
+                                     :class="{
+                                        'bg-green-500 shadow-[0_0_8px_#22c55e]': activeUserId !== 'CONNECTING...' && activeUserId !== 'ERROR',
+                                        'bg-red-500 animate-pulse': activeUserId === 'ERROR',
+                                        'bg-yellow-500 animate-pulse': activeUserId === 'CONNECTING...'
+                                     }"
+                                     :title="activeUserId === 'CONNECTING...' ? 'Connecting...' : (activeUserId === 'ERROR' ? 'Offline' : 'Online')">
+                                </div>
                             </div>
-                        </div>
 
-                        <hr class="border-white/10 my-4">
+                            <div class="flex-grow min-w-0 flex flex-col justify-center">
+                                <h3 class="text-3xl font-black text-white tracking-tighter leading-none mb-3">MH AGENT</h3>
+                                
+                                <div class="flex flex-wrap items-center gap-2 mb-3" x-data="{ count: (userProfile.unlockedBadges ? userProfile.unlockedBadges.length : 0) }">
+                                    
+                                    <div class="flex items-center bg-gray-800/50 border border-white/10 rounded px-2 py-0.5">
+                                        <span class="text-[9px] text-gray-500 font-bold mr-1.5 tracking-wider">NAME</span>
+                                        <span class="text-[10px] font-bold text-white font-mono tracking-widest uppercase"
+                                              x-text="(userProfile.lastActiveSeason === currentSeason.id && userProfile.seasonCodename) ? userProfile.seasonCodename : 'UNKNOWN'">
+                                        </span>
+                                    </div>
 
-                        <div>
-                            <div class="flex justify-between items-center mb-4">
-                                 <h4 class="text-lg font-bold text-gray-300">ACCOUNT KEY (UID)</h4>
-                                 <button @click="openAccountModal()" class="glass-button px-2 py-1 rounded-lg text-sm" title="Manage Account">🔑 Manage</button>
-                            </div>
-                            
-                            <p class="text-xs text-yellow-400/70 mb-4 font-bold">WARNING: This is your secret key. Do not share it with anyone!</p>
-                            
-                            <div class="flex items-center space-x-2">
-                                <div class="flex-grow bg-black/50 p-3 rounded-xl font-mono text-xs text-gray-300 truncate border border-white/10" x-text="activeUserId"></div>
-                                <button @click="copyUid()" class="glass-button px-4 py-3 rounded-xl font-bold text-cyan-300">COPY</button>
+                                    <div class="px-2 py-0.5 rounded border transition-colors duration-300 flex items-center"
+                                          :class="{
+                                              'bg-yellow-500/10 border-yellow-500/30 text-yellow-300': count >= 24,
+                                              'bg-green-500/10 border-green-500/30 text-green-400': count >= 8 && count < 24,
+                                              'bg-blue-500/10 border-blue-500/30 text-blue-400': count >= 4 && count < 8,
+                                              'bg-gray-500/10 border-gray-500/30 text-gray-400': count < 4
+                                          }">
+                                        <span class="text-[9px] opacity-70 font-bold mr-1.5 tracking-wider">RANK</span>
+                                        <span class="text-[10px] font-bold tracking-widest" 
+                                              x-text="count >= 24 ? 'S' : (count >= 8 ? 'A' : (count >= 4 ? 'B' : 'C'))"></span>
+                                    </div>
+                                </div>
+
+                                <div class="flex flex-wrap gap-2">
+                                    <button @click="openBadgeModal()" class="glass-button px-3 py-1.5 rounded text-[10px] font-bold text-gray-300 flex items-center space-x-1 hover:text-white hover:border-white/40 transition-all">
+                                        <span>🆔</span>
+                                        <span>BADGE</span>
+                                    </button>
+
+                                    <button @click="openAccountModal()" class="glass-button px-3 py-1.5 rounded text-[10px] font-bold text-gray-300 flex items-center space-x-1 hover:text-white hover:border-white/40 transition-all">
+                                        <span>🔑</span>
+                                        <span>ACCESS KEY</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
                     
-                    <div class="glass-panel p-5 rounded-2xl mb-6 border-l-4 border-l-cyan-500">
-                        <h3 class="text-xl font-bold text-gray-300 mb-4" x-text="translate('lang_select')"></h3>
-                        <p class="text-sm text-gray-400 mb-4" x-text="translate('lang_desc')"></p>
-                        <select x-model="currentLang" @change="setLanguage($event.target.value)" 
-                                class="w-full bg-black/70 border border-purple-500/50 text-white py-3 px-4 rounded-xl text-lg font-bold appearance-none pr-10 focus:outline-none focus:ring-2 focus:ring-purple-500">
-                            <template x-for="lang in supportedLangs" :key="lang.code">
-                                <option :value="lang.code" x-text="lang.name" :selected="currentLang === lang.code"></option>
-                            </template>
-                        </select>
-                    </div>
-                    
-                    <div class="glass-panel p-5 rounded-2xl mb-6 border-l-4 border-l-cyan-500">
-                        <h3 class="text-xl font-bold text-gray-300 mb-4 flex items-center">VOLUME CONTROL</h3>
-                        <div class="space-y-4">
-                            <div>
-                                <h4 class="text-base font-bold text-gray-400 mb-2 flex items-center">BGM VOLUME <span class="ml-auto text-cyan-300" x-text="`${Math.round(bgmVolume * 100)}%`"></span></h4>
-                                <input type="range" min="0" max="1" step="0.05" :value="bgmVolume" @input="updateBGMVolume" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer range-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-opacity-50">
-                            </div>
-                            <div>
-                                <h4 class="text-base font-bold text-gray-400 mb-2 flex items-center">SFX VOLUME <span class="ml-auto text-cyan-300" x-text="`${Math.round(sfxVolume * 100)}%`"></span></h4>
-                                <input type="range" min="0" max="1" step="0.05" :value="sfxVolume" @input="updateSFXVolume" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer range-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-opacity-50">
+                    <div class="glass-panel p-4 rounded-2xl mb-4 border border-white/10 border-l-4 border-l-cyan-500 flex justify-between items-center">
+                        <h3 class="text-lg font-bold text-gray-300 tracking-wider">LANGUAGE</h3>
+                        
+                        <div class="relative">
+                            <select x-model="currentLang" @change="setLanguage($event.target.value)" 
+                                    class="appearance-none bg-black/50 border border-white/20 text-white py-1.5 pl-4 pr-8 rounded-lg text-sm font-bold focus:outline-none focus:border-cyan-500 text-right">
+                                <template x-for="lang in supportedLangs" :key="lang.code">
+                                    <option :value="lang.code" x-text="lang.name" :selected="currentLang === lang.code"></option>
+                                </template>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                                <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
                             </div>
                         </div>
                     </div>
-                    <div class="mb-6">
-                        <button @click="openSuggestionModal()" class="glass-button w-full py-3 font-bold rounded-xl text-yellow-300 border-yellow-500/50 hover:bg-yellow-500/10">SEND SUGGESTION</button>
+                    
+                    <div class="glass-panel p-4 rounded-2xl mb-6 border border-white/10 border-l-4 border-l-cyan-500">
+                        <div class="flex items-center mb-4">
+                            <div class="w-12 text-sm font-bold text-gray-400 mr-3">BGM</div>
+                            <input type="range" min="0" max="1" step="0.05" :value="bgmVolume" @input="updateBGMVolume" 
+                                   class="flex-grow h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500 hover:accent-cyan-400 transition-all">
+                            <div class="w-10 text-right text-sm font-bold text-cyan-300 ml-3" x-text="`${Math.round(bgmVolume * 100)}%`"></div>
+                        </div>
+
+                        <div class="flex items-center">
+                            <div class="w-12 text-sm font-bold text-gray-400 mr-3">SFX</div>
+                            <input type="range" min="0" max="1" step="0.05" :value="sfxVolume" @input="updateSFXVolume" 
+                                   class="flex-grow h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-pink-500 hover:accent-pink-400 transition-all">
+                            <div class="w-10 text-right text-sm font-bold text-pink-400 ml-3" x-text="`${Math.round(sfxVolume * 100)}%`"></div>
+                        </div>
                     </div>
 
-                    <div class="mb-6">
-                        <button @click="confirmReset('all')" class="glass-button w-full py-3 font-bold rounded-xl text-red-400 border-red-500/50 hover:bg-red-500/10">RESET ALL DATA</button>
+                    <div class="grid grid-cols-2 gap-3 mb-6">
+                        <button @click="openSuggestionModal()" class="glass-button w-full py-3 font-bold rounded-xl text-yellow-300 border-yellow-500/50 hover:bg-yellow-500/10 flex items-center justify-center space-x-2">
+                            <span>✉️</span>
+                            <span>SUGGESTION</span>
+                        </button>
+
+                        <button @click="confirmReset('all')" class="glass-button w-full py-3 font-bold rounded-xl text-red-400 border-red-500/50 hover:bg-red-500/10 flex items-center justify-center space-x-2">
+                            <span>🗑️</span>
+                            <span>RESET DATA</span>
+                        </button>
                     </div>
 
                     <div class="glass-panel p-5 rounded-2xl mb-6 border border-white/10">
@@ -3427,27 +3517,50 @@
             </div>
 
             <div x-show="accountModalShow" x-transition class="absolute inset-0 w-full h-full flex flex-col justify-center items-center bg-black/70 backdrop-blur-sm z-[65] p-6" @click="closeAccountModal()">
-                <div class="glass-panel p-6 rounded-3xl w-full max-w-md" @click.stop>
-                    <h3 class="text-2xl font-bold text-cyan-300 mb-4">ACCOUNT MANAGEMENT</h3>
+                <div class="glass-panel p-6 rounded-3xl w-full max-w-md relative overflow-hidden" @click.stop>
+                    <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500"></div>
                     
-                    <div class="border-b border-white/10 pb-4">
-                        <p class="text-sm text-gray-400 mb-2 font-bold">IMPORT ACCOUNT KEY</p>
-                        <p class="text-xs text-yellow-400/70 mb-3">Paste a previously copied UID to load your account.</p>
+                    <h3 class="text-2xl font-black text-white mb-6 flex items-center">
+                        <span class="mr-2">🔐</span> SECURITY CLEARANCE
+                    </h3>
+                    
+                    <div class="bg-black/40 p-4 rounded-xl border border-white/10 mb-6">
+                        <div class="flex justify-between items-end mb-2">
+                            <p class="text-xs text-cyan-400 font-bold tracking-widest">MY SECRET KEY</p>
+                            <span class="text-[10px] text-red-400 font-bold px-1.5 py-0.5 rounded bg-red-400/10 border border-red-400/20">DO NOT SHARE</span>
+                        </div>
+                        
                         <div class="flex items-center space-x-2">
-                            <input type="text" x-model="inputUid" placeholder="Paste UID here..." class="flex-grow bg-black/50 border border-white/20 text-white py-3 px-4 rounded-xl text-sm focus:outline-none focus:border-cyan-500">
-                            <button @click="loadUid()" class="glass-button px-4 py-3 rounded-xl font-bold text-yellow-300 border-yellow-500/50">APPLY</button>
+                            <div class="flex-grow bg-black/60 p-3 rounded-lg font-mono text-xs text-gray-300 truncate border border-white/5 select-all" x-text="activeUserId"></div>
+                            <button @click="copyUid()" class="glass-button px-3 py-2.5 rounded-lg font-bold text-white border-white/20 hover:bg-white/10 transition-colors" title="Copy Key">
+                                📋
+                            </button>
+                        </div>
+                        <p class="text-[10px] text-gray-500 mt-2 leading-relaxed">
+                            This key is required to recover your record on other devices.
+                        </p>
+                    </div>
+
+                    <hr class="border-white/10 my-6 border-dashed">
+                    
+                    <div class="mb-6">
+                        <p class="text-sm text-gray-300 mb-2 font-bold">IMPORT DATA</p>
+                        <p class="text-xs text-gray-500 mb-3">Enter a Secret Key to switch accounts.</p>
+                        <div class="flex items-center space-x-2">
+                            <input type="text" x-model="inputUid" placeholder="Paste Key here..." class="flex-grow bg-black/50 border border-white/20 text-white py-3 px-4 rounded-xl text-sm focus:outline-none focus:border-cyan-500 placeholder-gray-600">
+                            <button @click="loadUid()" class="glass-button px-4 py-3 rounded-xl font-bold text-yellow-300 border-yellow-500/50 hover:bg-yellow-500/10">LOAD</button>
                         </div>
                     </div>
 
-                    <div class="mt-4 text-center">
-                        <p class="text-sm text-gray-400 mb-2 font-bold">RESET ACCOUNT</p>
-                        <p class="text-xs text-gray-500 mb-3">This will log you out of the current UID and return to a new guest account.</p>
-                        <button @click="resetUid()" class="glass-button w-full py-3 font-bold rounded-xl text-red-400 border-red-500/50 hover:bg-red-500/10">Reset to Guest Account</button>
+                    <div class="mt-4">
+                        <button @click="resetUid()" class="glass-button w-full py-3 font-bold rounded-xl text-red-400 border-red-500/30 hover:bg-red-500/10 hover:border-red-500/80 transition-all text-sm">
+                            ⚠️ DISCONNECT & CREATE NEW ID
+                        </button>
                     </div>
-
-                    <hr class="border-white/10 my-6">
                     
-                    <button @click="closeAccountModal()" class="glass-button w-full py-3 text-gray-300 font-bold rounded-xl">BACK</button>
+                    <div class="mt-6">
+                        <button @click="closeAccountModal()" class="glass-button w-full py-3 text-gray-400 font-bold rounded-xl hover:text-white">CLOSE</button>
+                    </div>
                 </div>
             </div>
 
@@ -3472,6 +3585,38 @@
                     <div class="glass-panel p-4 rounded-3xl w-full text-left space-y-4">
                         <h3 class="text-2xl font-bold text-cyan-300 tracking-widest border-b border-cyan-300/30 pb-2 mb-4">DETAILED MISSION REPORT</h3>
                         
+                        <div class="p-4 bg-black/40 rounded-xl border border-white/10 space-y-3">
+                            <h4 class="text-lg font-bold text-yellow-300 mb-2">TOTAL PERFORMANCE (S1-S10)</h4>
+                            
+                            <div class="text-sm font-bold text-gray-400 flex justify-between mb-2">
+                                <span>TOTAL CLEARED BLOCKS</span>
+                                <span class="text-white"><span x-text="finalReport.clearedBlocks"></span> / <span x-text="finalReport.totalBlocks"></span></span>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <h5 class="text-green-400 font-bold mb-1 border-b border-white/10 pb-1">SCORE GAINED</h5>
+                                    <div class="space-y-1 text-gray-300">
+                                        <div class="flex justify-between"><span>BASE</span><span class="text-white" x-text="finalReport.baseScore"></span></div>
+                                        <div class="flex justify-between"><span>PERFECT</span><span class="text-white" x-text="finalReport.perfectBonusScore"></span></div>
+                                        <div class="flex justify-between"><span>CHAIN</span><span class="text-white" x-text="finalReport.chainBonusScore"></span></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <h5 class="text-red-400 font-bold mb-1 border-b border-white/10 pb-1">PENALTY INCURRED</h5>
+                                    <div class="space-y-1 text-gray-300">
+                                        <div class="flex justify-between"><span>FAIL</span><span class="text-white" x-text="finalReport.failPenalty"></span></div>
+                                        <div class="flex justify-between"><span>TIME</span><span class="text-white" x-text="finalReport.timeOverPenalty"></span></div>
+                                        <div class="flex justify-between"><span>RELOAD</span><span class="text-white" x-text="finalReport.reloadPenalty"></span></div>
+                                    </div>
+                                </div>
+                            </div>
+                             <div class="mt-2 pt-2 border-t border-white/10 flex justify-between text-sm font-medium text-cyan-300">
+                                <span>BEST CHAIN: <span class="text-white" x-text="finalReport.maxChain"></span></span>
+                                <span>TOTAL PERFECTS: <span class="text-white" x-text="finalReport.perfectCount"></span></span>
+                            </div>
+                        </div>
+
                         <div class="p-3 bg-white/5 rounded-xl">
                             <h4 class="text-lg font-bold text-gray-300 mb-2">PERMANENT UPGRADES</h4>
                             <div class="flex flex-wrap gap-3 text-2xl">
