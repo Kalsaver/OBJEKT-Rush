@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OBJEKT Rush (v10.311 - Icon & Config Refactor)</title>
+    <title>OBJEKT Rush</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js" defer></script>
 
@@ -354,32 +354,6 @@
 
         .text-glow-sm {
             text-shadow: 0 0 4px currentColor;
-        }
-
-        .floating-objekt {
-            position: absolute;
-            width: 60px;
-            height: 80px;
-            border-radius: 6px;
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
-            backdrop-filter: blur(2px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            animation: float-rotate 20s infinite linear;
-            opacity: 0.5;
-        }
-
-        @keyframes float-rotate {
-            0% {
-                transform: translateY(0) rotate(0deg) scale(1);
-            }
-
-            50% {
-                transform: translateY(-20px) rotate(180deg) scale(1.1);
-            }
-
-            100% {
-                transform: translateY(0) rotate(360deg) scale(1);
-            }
         }
 
         .craft-grid-container {
@@ -754,14 +728,48 @@
             MAX_BLOCK_MEMBERS: 4     // 일반 블록 최대 멤버 수
         };
 
-        // [NEW] 저장 데이터 키 관리 (차기작에서 GAME_ID만 바꾸면 됨)
-        const GAME_ID = 'objektRush';
+        const GAME_LIMITS = {
+            INVENTORY_MAX: 12, // 인벤토리 최대 보유량
+            SLOT_MAX: 8,       // 입력 슬롯 최대 개수
+            CRAFT_REQ: 4,      // 그리드 제작에 필요한 카드 수
+            SPIN_MAX: 3        // 인터미션 스핀 최대 횟수
+        };
+
+        const GAME_CARD_TYPES = {
+            MEMBER: 'member_card',
+            JOKER: 'joker_card',
+            FAIL: 'fail_card',
+            GODDESS: 'goddess_card',
+            FRIEND: 'friend_card'
+        };
+
+        const GAME_STAGES = {
+            ENDING: 10,
+            OVERTIME: 11
+        };
+
+        // [MODIFIED] 게임 식별자 및 버전 관리 객체로 고도화
+        const GAME_CONFIG = {
+            ID: 'objektRush',
+            VERSION: 'v1.0.0',
+        };
+
+        // [MODIFIED] 저장 키 생성 로직 (GAME_CONFIG.ID를 접두어로 사용)
         const SAVE_KEY = {
-            UID: `${GAME_ID}CustomUid`,
-            LANG: `${GAME_ID}Language`,
-            BGM: `${GAME_ID}BGMVolume`,
-            SFX: `${GAME_ID}SFXVolume`,
-            BADGE_CHECK_PREFIX: `${GAME_ID}_badge_checked_`
+            UID: `${GAME_CONFIG.ID}_CustomUid`,
+            LANG: `${GAME_CONFIG.ID}_Language`,
+            BGM: `${GAME_CONFIG.ID}_BGMVolume`,
+            SFX: `${GAME_CONFIG.ID}_SFXVolume`,
+            // 배지 체크 키 접두어 (로직 내에서 id를 붙여 사용)
+            BADGE_CHECK_PREFIX: `${GAME_CONFIG.ID}_badge_checked_`
+        };
+
+        // [NEW] DB 컬렉션 경로 중앙화
+        const GAME_DB_PATHS = {
+            RANKS: 'ranks',             // 랭킹 컬렉션
+            PROFILES: 'userProfiles',   // 유저 프로필 컬렉션
+            GRAVITY: 'seasonGravity',   // 시즌 투표 컬렉션
+            SUGGESTIONS: 'suggestions'  // 건의사항 컬렉션
         };
 
         const GAME_ITEM_INFO = {
@@ -819,30 +827,30 @@
         };
 
         const GAME_MEMBER_DATA = [
-            { sNumber: 'S1', kor: '서연', eng: 'SeoYeon', color: '#22AEFF', birthday: '08-06', dimensions: ['KRE', 'LOVE', 'Neptune'], decoysKor: ['서언', '서영', '셔연'], decoysEng: ['SeoYoun', 'SeoYeong', 'SoeYeon'], type: 'member_card' },
-            { sNumber: 'S2', kor: '혜린', eng: 'HyeRin', color: '#9200FF', birthday: '04-12', dimensions: ['AAA', 'LOVE', 'VV', 'Sun'], decoysKor: ['헤린', '혜림', '해린'], decoysEng: ['HyeLin', 'HyeRim', 'HeyRin'], type: 'member_card' },
-            { sNumber: 'S3', kor: '지우', eng: 'JiWoo', color: '#FFF800', birthday: '10-24', dimensions: ['KRE', 'EVOL', 'Aria', 'Hatch!', 'Zenith'], decoysKor: ['지유', '시우', '지후'], decoysEng: ['JiWu', 'JiYu', 'JiWooo'], type: 'member_card' },
-            { sNumber: 'S4', kor: '채연', eng: 'ChaeYeon', color: '#98F21D', birthday: '12-04', dimensions: ['KRE', 'EVOL', 'Aria', 'Hatch!', 'Sun'], decoysKor: ['채언', '채영', '체연'], decoysEng: ['ChaeYoun', 'ChaeYeong', 'CheaYeon'], type: 'member_card' },
-            { sNumber: 'S5', kor: '유연', eng: 'YooYeon', color: '#DB0C74', birthday: '02-09', dimensions: ['AAA', 'EVOL', 'VV', 'Hatch!', 'Alphie', 'Sun'], decoysKor: ['유언', '유영', '우연'], decoysEng: ['YooYoun', 'YooYeong', 'YooYoen'], type: 'member_card' },
-            { sNumber: 'S6', kor: '수민', eng: 'SooMin', color: '#FC83A4', birthday: '10-03', dimensions: ['KRE', 'EVOL', 'Hatch!', 'Zenith'], decoysKor: ['수밈', '수빈', '슈민'], decoysEng: ['SooMean', 'SooBin', 'SuMin'], type: 'member_card' },
-            { sNumber: 'S7', kor: '나경', eng: 'NaKyoung', color: '#6799A0', birthday: '10-13', dimensions: ['AAA', 'EVOL', 'VV', 'Neptune'], decoysKor: ['나겅', '나겸', '다경'], decoysEng: ['NaKyeong', 'NaKyoum', 'NaKyuong'], type: 'member_card' },
-            { sNumber: 'S8', kor: '유빈', eng: 'YuBin', color: '#FFE3E2', birthday: '02-03', dimensions: ['AAA', 'LOVE', 'VV', 'Zenith'], decoysKor: ['유빔', '유민', '우빈'], decoysEng: ['YuBean', 'YuBim', 'YooBin'], type: 'member_card' },
-            { sNumber: 'S9', kor: '카에데', eng: 'Kaede', color: '#FFC935', birthday: '12-20', dimensions: ['LOVE', 'Aria', 'VV', 'Moon'], decoysKor: ['카에대', '카애데', '가에데'], decoysEng: ['Kaedeh', 'Kaebe', 'Keade'], type: 'member_card' },
-            { sNumber: 'S10', kor: '다현', eng: 'DaHyun', color: '#FF9AD6', birthday: '01-08', dimensions: ['LOVE', 'Aria', 'Neptune'], decoysKor: ['다헌', '다형', '다연'], decoysEng: ['DaHyeon', 'DaHyung', 'DaHuyn'], type: 'member_card' },
-            { sNumber: 'S11', kor: '코토네', eng: 'Kotone', color: '#FFDE00', birthday: '03-10', dimensions: ['EVOL', 'VV', 'Hatch!', 'Alphie', 'Neptune'], decoysKor: ['코토내', '코도네', '고토네'], decoysEng: ['Kotoneh', 'Katone', 'Kotonae'], type: 'member_card' },
-            { sNumber: 'S12', kor: '연지', eng: 'YeonJi', color: '#5974FF', birthday: '01-08', dimensions: ['EVOL', 'VV', 'Zenith'], decoysKor: ['연시', '영지', '언지'], decoysEng: ['YeonJee', 'YeongJi', 'YoenJi'], type: 'member_card' },
-            { sNumber: 'S13', kor: '니엔', eng: 'Nien', color: '#FF953F', birthday: '06-02', dimensions: ['LOVE', 'Aria', 'VV', 'Alphie', 'Neptune'], decoysKor: ['니앤', '니옌', '리엔'], decoysEng: ['Niaen', 'Niyen', 'Nein'], type: 'member_card' },
-            { sNumber: 'S14', kor: '소현', eng: 'SoHyun', color: '#1222B5', birthday: '10-13', dimensions: ['LOVE', 'VV', 'Moon'], decoysKor: ['소헌', '소형', '소연'], decoysEng: ['SoHyeon', 'SoHyung', 'SoHuyn'], type: 'member_card' },
-            { sNumber: 'S15', kor: '신위', eng: 'Xinyu', color: '#D51313', birthday: '05-25', dimensions: ['LOVE', 'VV', 'Sun'], decoysKor: ['신이', '시니', '신유'], decoysEng: ['Xinyui', 'Xinyi', 'Xinuy'], type: 'member_card' },
-            { sNumber: 'S16', kor: '마유', eng: 'Mayu', color: '#FE8E76', birthday: '05-12', dimensions: ['EVOL', 'Hatch!', 'Sun'], decoysKor: ['마우', '미유', '마위'], decoysEng: ['Mayoo', 'Miyu', 'Mayuu'], type: 'member_card' },
-            { sNumber: 'S17', kor: '린', eng: 'Lynn', color: '#AC62B7', birthday: '04-12', dimensions: ['NXT', 'VV', 'Alphie', 'Moon'], decoysKor: ['링', '림', '릴'], decoysEng: ['Lyn', 'Lym', 'Rynn'], type: 'member_card' },
-            { sNumber: 'S18', kor: '주빈', eng: 'JooBin', color: '#B7F54C', birthday: '01-16', dimensions: ['NXT', 'Zenith'], decoysKor: ['주빔', '주민', '쥬빈'], decoysEng: ['JooBean', 'JooBim', 'JuBin'], type: 'member_card' },
-            { sNumber: 'S19', kor: '하연', eng: 'HaYeon', color: '#52D9BB', birthday: '08-01', dimensions: ['NXT', 'Alphie', 'Zenith'], decoysKor: ['하언', '하영', '햐연'], decoysEng: ['HaYoun', 'HaYeong', 'HaYoen'], type: 'member_card' },
-            { sNumber: 'S20', kor: '시온', eng: 'ShiOn', color: '#FF428A', birthday: '04-03', dimensions: ['NXT', 'Hatch!', 'Alphie', 'Moon'], decoysKor: ['시은', '시옴', '시욘'], decoysEng: ['SiOn', 'ShiOm', 'ShiOne'], type: 'member_card' },
-            { sNumber: 'S21', kor: '채원', eng: 'ChaeWon', color: '#C7A3E0', birthday: '05-02', dimensions: ['Glow', 'Hatch!', 'Alphie', 'Sun'], decoysKor: ['채윈', '채웡', '체원'], decoysEng: ['ChaeOne', 'ChaeWong', 'CheaWon'], type: 'member_card' },
-            { sNumber: 'S22', kor: '설린', eng: 'Sullin', color: '#7BBA8D', birthday: '11-30', dimensions: ['Glow', 'Moon'], decoysKor: ['설륀', '설림', '선린'], decoysEng: ['Seollin', 'Sullim', 'Sulin'], type: 'member_card' },
-            { sNumber: 'S23', kor: '서아', eng: 'SeoAh', color: '#CFF3FF', birthday: '06-11', dimensions: ['Glow', 'Neptune'], decoysKor: ['서이', '시아', '서하'], decoysEng: ['SeoA', 'SeeAh', 'SoeAh'], type: 'member_card' },
-            { sNumber: 'S24', kor: '지연', eng: 'JiYeon', color: '#FFAB62', birthday: '02-13', dimensions: ['Glow', 'VV', 'Alphie', 'Moon'], decoysKor: ['지언', '지영', '시연'], decoysEng: ['JiYoun', 'JiYeong', 'JiYoen'], type: 'member_card' }
+            { sNumber: 'S1', kor: '서연', eng: 'SeoYeon', color: '#22AEFF', birthday: '08-06', dimensions: ['KRE', 'LOVE', 'Neptune'], decoysKor: ['서언', '서영', '셔연'], decoysEng: ['SeoYoun', 'SeoYeong', 'SoeYeon'], type: GAME_CARD_TYPES.MEMBER },
+            { sNumber: 'S2', kor: '혜린', eng: 'HyeRin', color: '#9200FF', birthday: '04-12', dimensions: ['AAA', 'LOVE', 'VV', 'Sun'], decoysKor: ['헤린', '혜림', '해린'], decoysEng: ['HyeLin', 'HyeRim', 'HeyRin'], type: GAME_CARD_TYPES.MEMBER },
+            { sNumber: 'S3', kor: '지우', eng: 'JiWoo', color: '#FFF800', birthday: '10-24', dimensions: ['KRE', 'EVOL', 'Aria', 'Hatch!', 'Zenith'], decoysKor: ['지유', '시우', '지후'], decoysEng: ['JiWu', 'JiYu', 'JiWooo'], type: GAME_CARD_TYPES.MEMBER },
+            { sNumber: 'S4', kor: '채연', eng: 'ChaeYeon', color: '#98F21D', birthday: '12-04', dimensions: ['KRE', 'EVOL', 'Aria', 'Hatch!', 'Sun'], decoysKor: ['채언', '채영', '체연'], decoysEng: ['ChaeYoun', 'ChaeYeong', 'CheaYeon'], type: GAME_CARD_TYPES.MEMBER },
+            { sNumber: 'S5', kor: '유연', eng: 'YooYeon', color: '#DB0C74', birthday: '02-09', dimensions: ['AAA', 'EVOL', 'VV', 'Hatch!', 'Alphie', 'Sun'], decoysKor: ['유언', '유영', '우연'], decoysEng: ['YooYoun', 'YooYeong', 'YooYoen'], type: GAME_CARD_TYPES.MEMBER },
+            { sNumber: 'S6', kor: '수민', eng: 'SooMin', color: '#FC83A4', birthday: '10-03', dimensions: ['KRE', 'EVOL', 'Hatch!', 'Zenith'], decoysKor: ['수밈', '수빈', '슈민'], decoysEng: ['SooMean', 'SooBin', 'SuMin'], type: GAME_CARD_TYPES.MEMBER },
+            { sNumber: 'S7', kor: '나경', eng: 'NaKyoung', color: '#6799A0', birthday: '10-13', dimensions: ['AAA', 'EVOL', 'VV', 'Neptune'], decoysKor: ['나겅', '나겸', '다경'], decoysEng: ['NaKyeong', 'NaKyoum', 'NaKyuong'], type: GAME_CARD_TYPES.MEMBER },
+            { sNumber: 'S8', kor: '유빈', eng: 'YuBin', color: '#FFE3E2', birthday: '02-03', dimensions: ['AAA', 'LOVE', 'VV', 'Zenith'], decoysKor: ['유빔', '유민', '우빈'], decoysEng: ['YuBean', 'YuBim', 'YooBin'], type: GAME_CARD_TYPES.MEMBER },
+            { sNumber: 'S9', kor: '카에데', eng: 'Kaede', color: '#FFC935', birthday: '12-20', dimensions: ['LOVE', 'Aria', 'VV', 'Moon'], decoysKor: ['카에대', '카애데', '가에데'], decoysEng: ['Kaedeh', 'Kaebe', 'Keade'], type: GAME_CARD_TYPES.MEMBER },
+            { sNumber: 'S10', kor: '다현', eng: 'DaHyun', color: '#FF9AD6', birthday: '01-08', dimensions: ['LOVE', 'Aria', 'Neptune'], decoysKor: ['다헌', '다형', '다연'], decoysEng: ['DaHyeon', 'DaHyung', 'DaHuyn'], type: GAME_CARD_TYPES.MEMBER },
+            { sNumber: 'S11', kor: '코토네', eng: 'Kotone', color: '#FFDE00', birthday: '03-10', dimensions: ['EVOL', 'VV', 'Hatch!', 'Alphie', 'Neptune'], decoysKor: ['코토내', '코도네', '고토네'], decoysEng: ['Kotoneh', 'Katone', 'Kotonae'], type: GAME_CARD_TYPES.MEMBER },
+            { sNumber: 'S12', kor: '연지', eng: 'YeonJi', color: '#5974FF', birthday: '01-08', dimensions: ['EVOL', 'VV', 'Zenith'], decoysKor: ['연시', '영지', '언지'], decoysEng: ['YeonJee', 'YeongJi', 'YoenJi'], type: GAME_CARD_TYPES.MEMBER },
+            { sNumber: 'S13', kor: '니엔', eng: 'Nien', color: '#FF953F', birthday: '06-02', dimensions: ['LOVE', 'Aria', 'VV', 'Alphie', 'Neptune'], decoysKor: ['니앤', '니옌', '리엔'], decoysEng: ['Niaen', 'Niyen', 'Nein'], type: GAME_CARD_TYPES.MEMBER },
+            { sNumber: 'S14', kor: '소현', eng: 'SoHyun', color: '#1222B5', birthday: '10-13', dimensions: ['LOVE', 'VV', 'Moon'], decoysKor: ['소헌', '소형', '소연'], decoysEng: ['SoHyeon', 'SoHyung', 'SoHuyn'], type: GAME_CARD_TYPES.MEMBER },
+            { sNumber: 'S15', kor: '신위', eng: 'Xinyu', color: '#D51313', birthday: '05-25', dimensions: ['LOVE', 'VV', 'Sun'], decoysKor: ['신이', '시니', '신유'], decoysEng: ['Xinyui', 'Xinyi', 'Xinuy'], type: GAME_CARD_TYPES.MEMBER },
+            { sNumber: 'S16', kor: '마유', eng: 'Mayu', color: '#FE8E76', birthday: '05-12', dimensions: ['EVOL', 'Hatch!', 'Sun'], decoysKor: ['마우', '미유', '마위'], decoysEng: ['Mayoo', 'Miyu', 'Mayuu'], type: GAME_CARD_TYPES.MEMBER },
+            { sNumber: 'S17', kor: '린', eng: 'Lynn', color: '#AC62B7', birthday: '04-12', dimensions: ['NXT', 'VV', 'Alphie', 'Moon'], decoysKor: ['링', '림', '릴'], decoysEng: ['Lyn', 'Lym', 'Rynn'], type: GAME_CARD_TYPES.MEMBER },
+            { sNumber: 'S18', kor: '주빈', eng: 'JooBin', color: '#B7F54C', birthday: '01-16', dimensions: ['NXT', 'Zenith'], decoysKor: ['주빔', '주민', '쥬빈'], decoysEng: ['JooBean', 'JooBim', 'JuBin'], type: GAME_CARD_TYPES.MEMBER },
+            { sNumber: 'S19', kor: '하연', eng: 'HaYeon', color: '#52D9BB', birthday: '08-01', dimensions: ['NXT', 'Alphie', 'Zenith'], decoysKor: ['하언', '하영', '햐연'], decoysEng: ['HaYoun', 'HaYeong', 'HaYoen'], type: GAME_CARD_TYPES.MEMBER },
+            { sNumber: 'S20', kor: '시온', eng: 'ShiOn', color: '#FF428A', birthday: '04-03', dimensions: ['NXT', 'Hatch!', 'Alphie', 'Moon'], decoysKor: ['시은', '시옴', '시욘'], decoysEng: ['SiOn', 'ShiOm', 'ShiOne'], type: GAME_CARD_TYPES.MEMBER },
+            { sNumber: 'S21', kor: '채원', eng: 'ChaeWon', color: '#C7A3E0', birthday: '05-02', dimensions: ['Glow', 'Hatch!', 'Alphie', 'Sun'], decoysKor: ['채윈', '채웡', '체원'], decoysEng: ['ChaeOne', 'ChaeWong', 'CheaWon'], type: GAME_CARD_TYPES.MEMBER },
+            { sNumber: 'S22', kor: '설린', eng: 'Sullin', color: '#7BBA8D', birthday: '11-30', dimensions: ['Glow', 'Moon'], decoysKor: ['설륀', '설림', '선린'], decoysEng: ['Seollin', 'Sullim', 'Sulin'], type: GAME_CARD_TYPES.MEMBER },
+            { sNumber: 'S23', kor: '서아', eng: 'SeoAh', color: '#CFF3FF', birthday: '06-11', dimensions: ['Glow', 'Neptune'], decoysKor: ['서이', '시아', '서하'], decoysEng: ['SeoA', 'SeeAh', 'SoeAh'], type: GAME_CARD_TYPES.MEMBER },
+            { sNumber: 'S24', kor: '지연', eng: 'JiYeon', color: '#FFAB62', birthday: '02-13', dimensions: ['Glow', 'VV', 'Alphie', 'Moon'], decoysKor: ['지언', '지영', '시연'], decoysEng: ['JiYoun', 'JiYeong', 'JiYoen'], type: GAME_CARD_TYPES.MEMBER }
         ];
 
         const GAME_DIMENSION_DATA = [
@@ -863,29 +871,29 @@
         ];
 
         const GAME_MODHAUS_DATA = [
-            { sNumber: 'X', kor: '실패', eng: 'Fail', color: '#F5F5F5', birthday: '08-08', type: 'fail_card' },
-            { sNumber: 'MH', kor: '제이든', eng: 'Jaden', color: '#333333', birthday: '05-01', type: 'joker_card' }
+            { sNumber: 'X', kor: '실패', eng: 'Fail', color: '#F5F5F5', birthday: '08-08', type: GAME_CARD_TYPES.FAIL },
+            { sNumber: 'MH', kor: '제이든', eng: 'Jaden', color: '#333333', birthday: '05-01', type: GAME_CARD_TYPES.JOKER }
         ];
 
         const GAME_ARTMS_DATA = [
-            { sNumber: 'A1', kor: '희진', eng: 'HeeJin', color: '#ED008F', birthday: '10-19', type: 'goddess_card' },
-            { sNumber: 'A2', kor: '하슬', eng: 'HaSeul', color: '#01C261', birthday: '08-18', type: 'goddess_card' },
-            { sNumber: 'A3', kor: '김립', eng: 'Kim Lip', color: '#DB3547', birthday: '02-10', type: 'goddess_card' },
-            { sNumber: 'A4', kor: '진솔', eng: 'JinSoul', color: '#1724A7', birthday: '06-13', type: 'goddess_card' },
-            { sNumber: 'A5', kor: '최리', eng: 'Choerry', color: '#5B2A93', birthday: '06-04', type: 'goddess_card' }
+            { sNumber: 'A1', kor: '희진', eng: 'HeeJin', color: '#ED008F', birthday: '10-19', type: GAME_CARD_TYPES.GODDESS },
+            { sNumber: 'A2', kor: '하슬', eng: 'HaSeul', color: '#01C261', birthday: '08-18', type: GAME_CARD_TYPES.GODDESS },
+            { sNumber: 'A3', kor: '김립', eng: 'Kim Lip', color: '#DB3547', birthday: '02-10', type: GAME_CARD_TYPES.GODDESS },
+            { sNumber: 'A4', kor: '진솔', eng: 'JinSoul', color: '#1724A7', birthday: '06-13', type: GAME_CARD_TYPES.GODDESS },
+            { sNumber: 'A5', kor: '최리', eng: 'Choerry', color: '#5B2A93', birthday: '06-04', type: GAME_CARD_TYPES.GODDESS }
         ];
 
         const GAME_FRIEND_DATA = [
-            { sNumber: 'BB', kor: '비비', eng: 'BIBI', color: '#AAAAAA', birthday: '09-27', type: 'friend_card' },
-            { sNumber: 'HS', kor: '형서', eng: 'HyungSeo', color: '#AAAAAA', birthday: '06-25', type: 'friend_card' },
-            { sNumber: 'JM', kor: '지민', eng: 'JiMin', color: '#AAAAAA', birthday: '11-25', type: 'friend_card' },
-            { sNumber: 'BE', kor: '보은', eng: 'BoEun', color: '#AAAAAA', birthday: '02-11', type: 'friend_card' },
-            { sNumber: 'YA', kor: '윤아', eng: 'YunAh', color: '#AAAAAA', birthday: '01-15', type: 'friend_card' },
-            { sNumber: 'MK', kor: '모카', eng: 'Moka', color: '#AAAAAA', birthday: '10-08', type: 'friend_card' },
-            { sNumber: 'DH', kor: '도희', eng: 'DoHee', color: '#AAAAAA', birthday: '12-09', type: 'friend_card' },
-            { sNumber: 'SJ', kor: '승주', eng: 'SeungJoo', color: '#AAAAAA', birthday: '09-24', type: 'friend_card' },
-            { sNumber: 'HR', kor: '하루나', eng: 'Haruna', color: '#AAAAAA', birthday: '01-30', type: 'friend_card' },
-            { sNumber: 'YS', kor: '예서', eng: 'YeSeo', color: '#AAAAAA', birthday: '08-22', type: 'friend_card' }
+            { sNumber: 'BB', kor: '비비', eng: 'BIBI', color: '#AAAAAA', birthday: '09-27', type: GAME_CARD_TYPES.FRIEND },
+            { sNumber: 'HS', kor: '형서', eng: 'HyungSeo', color: '#AAAAAA', birthday: '06-25', type: GAME_CARD_TYPES.FRIEND },
+            { sNumber: 'JM', kor: '지민', eng: 'JiMin', color: '#AAAAAA', birthday: '11-25', type: GAME_CARD_TYPES.FRIEND },
+            { sNumber: 'BE', kor: '보은', eng: 'BoEun', color: '#AAAAAA', birthday: '02-11', type: GAME_CARD_TYPES.FRIEND },
+            { sNumber: 'YA', kor: '윤아', eng: 'YunAh', color: '#AAAAAA', birthday: '01-15', type: GAME_CARD_TYPES.FRIEND },
+            { sNumber: 'MK', kor: '모카', eng: 'Moka', color: '#AAAAAA', birthday: '10-08', type: GAME_CARD_TYPES.FRIEND },
+            { sNumber: 'DH', kor: '도희', eng: 'DoHee', color: '#AAAAAA', birthday: '12-09', type: GAME_CARD_TYPES.FRIEND },
+            { sNumber: 'SJ', kor: '승주', eng: 'SeungJoo', color: '#AAAAAA', birthday: '09-24', type: GAME_CARD_TYPES.FRIEND },
+            { sNumber: 'HR', kor: '하루나', eng: 'Haruna', color: '#AAAAAA', birthday: '01-30', type: GAME_CARD_TYPES.FRIEND },
+            { sNumber: 'YS', kor: '예서', eng: 'YeSeo', color: '#AAAAAA', birthday: '08-22', type: GAME_CARD_TYPES.FRIEND }
         ];
 
         const GAME_TRANSLATIONS_FALLBACK = {
@@ -1078,7 +1086,7 @@
 
                 // Inventory
                 inventory: [],
-                inventoryMaxSize: 12,
+                inventoryMaxSize: GAME_LIMITS.INVENTORY_MAX,
                 selectedInventoryCard: null,
 
                 // Items & Shop
@@ -1175,6 +1183,7 @@
                 ITEM_INFO: GAME_ITEM_INFO,
                 BOSS_COMMENTS: GAME_BOSS_COMMENTS,
                 ENDING_MESSAGES: GAME_ENDING_MESSAGES,
+                GAME_CONFIG: GAME_CONFIG,
 
                 stageConfig: GAME_STAGE_CONFIG,
                 bossPools: GAME_BOSS_POOLS,
@@ -1273,7 +1282,8 @@
                     }
 
                     this.isProfileLoading = true;
-                    const docRef = window.fbDoc(window.fbDb, "userProfiles", this.activeUserId);
+                    // [MODIFIED] GAME_DB_PATHS 적용
+                    const docRef = window.fbDoc(window.fbDb, GAME_DB_PATHS.PROFILES, this.activeUserId);
 
                     try {
                         const docSnap = await window.fbGetDoc(docRef);
@@ -1281,12 +1291,11 @@
                         if (docSnap.exists()) {
                             this.userProfile = docSnap.data();
                             if (!this.userProfile.unlockedBadges || !this.userProfile.unlockedBadges.includes(this.DEFAULT_BADGE)) {
-                                this.grantBadge(this.DEFAULT_BADGE, false); // 피드백 없이 조용히 추가
+                                this.grantBadge(this.DEFAULT_BADGE, false);
                             }
                         } else {
-                            // This is a new user, create their profile
                             const newProfile = {
-                                unlockedBadges: [this.DEFAULT_BADGE], // 기본 배지 지급
+                                unlockedBadges: [this.DEFAULT_BADGE],
                                 selectedBadge: this.DEFAULT_BADGE
                             };
                             await window.fbSetDoc(docRef, newProfile);
@@ -1302,28 +1311,26 @@
 
                 async checkAndGrantSeasonBadge() {
                     if (!this.activeUserId || this.activeUserId === 'CONNECTING...') return;
-                    // 비시즌 기간이 아니면 실행 안 함
                     if (this.currentSeason.state !== 'frozen') return;
 
-                    // KST 기준, '오늘'이 아닌 '지난 달'의 시즌 정보를 가져와야 함
                     const kstDate = new Date(new Date().getTime() + (new Date().getTimezoneOffset() * 60000) + (9 * 60 * 60 * 1000));
                     const lastMonthDate = new Date(kstDate.getFullYear(), kstDate.getMonth() - 1, 1);
 
                     const prevMonthsPassed = (lastMonthDate.getFullYear() - this.baseYear) * 12 + (lastMonthDate.getMonth() - this.baseMonth);
 
-                    if (prevMonthsPassed < 0) return; // 첫 시즌 이전
+                    if (prevMonthsPassed < 0) return;
 
                     const prevSeason = this.getSeasonInfo(prevMonthsPassed);
                     const badgeToGrant = prevSeason.badge;
-                    const checkedKey = `badge_checked_${prevSeason.id}`;
+                    // [MODIFIED] SAVE_KEY.BADGE_CHECK_PREFIX 적용
+                    const checkedKey = `${SAVE_KEY.BADGE_CHECK_PREFIX}${prevSeason.id}`;
 
-                    // 이미 이번 비시즌에 보상을 체크했으면 실행 안 함
                     if (localStorage.getItem(checkedKey)) return;
 
                     try {
-                        // 지난 시즌 랭킹에 이 유저가 있는지 확인
                         const q = window.fbQuery(
-                            window.fbCollection(window.fbDb, "ranks"),
+                            // [MODIFIED] GAME_DB_PATHS 적용
+                            window.fbCollection(window.fbDb, GAME_DB_PATHS.RANKS),
                             window.fbWhere("season", "==", prevSeason.id),
                             window.fbWhere("userId", "==", this.activeUserId),
                             window.fbLimit(1)
@@ -1332,11 +1339,9 @@
                         const rankSnapshot = await window.fbGetDocs(q);
 
                         if (!rankSnapshot.empty) {
-                            // 랭커였음! 배지 지급
-                            await this.grantBadge(badgeToGrant, true); // 피드백과 함께 지급
+                            await this.grantBadge(badgeToGrant, true);
                         }
 
-                        // 랭커였든 아니든, 체크 사실을 로컬에 저장 (DB 호출 방지)
                         localStorage.setItem(checkedKey, 'true');
 
                     } catch (e) {
@@ -1346,8 +1351,9 @@
 
                 async grantBadge(badgeEmoji, showFeedbackMsg = true) {
                     if (!this.activeUserId || this.activeUserId === 'CONNECTING...') return;
-                    // 중복 지급 방지 ( grantBadge가 loadUserProfile보다 먼저 호출될 수 있으므로, userProfile.unlockedBadges 대신 getDoc을 한번 더 함)
-                    const docRef = window.fbDoc(window.fbDb, "userProfiles", this.activeUserId);
+                    
+                    // [MODIFIED] GAME_DB_PATHS 적용
+                    const docRef = window.fbDoc(window.fbDb, GAME_DB_PATHS.PROFILES, this.activeUserId);
                     const docSnap = await window.fbGetDoc(docRef);
 
                     if (docSnap.exists() && docSnap.data().unlockedBadges && docSnap.data().unlockedBadges.includes(badgeEmoji)) {
@@ -1355,12 +1361,10 @@
                     }
 
                     try {
-                        // setDoc(docRef, { unlockedBadges: window.fbArrayUnion(badgeEmoji) }, { merge: true }); 와 동일한 효과
                         await window.fbUpdateDoc(docRef, {
                             unlockedBadges: window.fbArrayUnion(badgeEmoji)
                         });
 
-                        // 로컬 데이터 즉시 갱신
                         if (!this.userProfile.unlockedBadges.includes(badgeEmoji)) {
                             this.userProfile.unlockedBadges.push(badgeEmoji);
                         }
@@ -1369,7 +1373,6 @@
                             this.showFeedback(`REWARD: ${badgeEmoji} UNLOCKED!`, 'correct');
                         }
                     } catch (e) {
-                        // userProfiles 문서가 아직 없는 극초기 유저가 랭커가 되어 비시즌에 접속한 경우, update가 실패할 수 있음.
                         if (e.code === 'not-found') {
                             console.warn("Profile not found on grantBadge, creating with badge...");
                             await window.fbSetDoc(docRef, {
@@ -1398,8 +1401,9 @@
                     this.playSound('input');
                     if (!this.activeUserId || this.activeUserId === 'CONNECTING...') return;
 
-                    this.userProfile.selectedBadge = badgeEmoji; // UI 즉시 반영
-                    const docRef = window.fbDoc(window.fbDb, "userProfiles", this.activeUserId);
+                    this.userProfile.selectedBadge = badgeEmoji;
+                    // [MODIFIED] GAME_DB_PATHS 적용
+                    const docRef = window.fbDoc(window.fbDb, GAME_DB_PATHS.PROFILES, this.activeUserId);
 
                     try {
                         await window.fbUpdateDoc(docRef, { selectedBadge: badgeEmoji });
@@ -1407,7 +1411,6 @@
                     } catch (e) {
                         console.error("Error setting badge: ", e);
                         this.showFeedback('SET FAILED', 'incorrect');
-                        // 실패 시 롤백 (안전 장치)
                         this.loadUserProfile();
                     } finally {
                         this.closeBadgeModal();
@@ -1415,7 +1418,7 @@
                 },
 
                 getSeasonInfo(monthsPassed) {
-                    if (monthsPassed < 0) monthsPassed = 0; // 첫 시즌 이전 방지
+                    if (monthsPassed < 0) monthsPassed = 0;
 
                     const nameIndex = monthsPassed % this.seasonNames.length;
                     const cycleNumber = Math.floor(monthsPassed / this.seasonNames.length) + 1;
@@ -1425,11 +1428,14 @@
                     // 보상 배지 루프
                     const badge = this.SEASON_BADGE_TABLE[monthsPassed % this.SEASON_BADGE_TABLE.length];
 
-                    // 시즌 시작 날짜 계산
-                    const startDate = new Date(this.baseYear, this.baseMonth + monthsPassed, 1);
-                    const yyyy = startDate.getFullYear();
-                    const mm = String(startDate.getMonth() + 1).padStart(2, '0');
-                    const dd = '01';
+                    // 날짜 계산 (연, 월)
+                    const startDateObj = new Date(this.baseYear, this.baseMonth + monthsPassed, 1);
+                    const yyyy = startDateObj.getFullYear();
+                    const mm = String(startDateObj.getMonth() + 1).padStart(2, '0');
+
+                    // [MODIFIED] 시작일 대신 '기간(Range)' 문자열을 생성하여 반환
+                    // 예: "2025.10.01 ~ 2025.10.24"
+                    const dateRange = `${yyyy}.${mm}.01 ~ ${yyyy}.${mm}.24`;
 
                     return {
                         id: seasonId,
@@ -1437,7 +1443,7 @@
                         cycle: cycleNumber,
                         color: this.seasonColors[seasonName],
                         badge: badge,
-                        startDate: `${yyyy}.${mm}.${dd}`
+                        dateRange: dateRange // startDate 대신 dateRange 사용
                     };
                 },
 
@@ -1523,12 +1529,14 @@
                     this.suggestionModal.isSending = true;
 
                     try {
-                        await window.fbAddDoc(window.fbCollection(window.fbDb, "suggestions"), {
+                        // [MODIFIED] GAME_DB_PATHS 적용
+                        await window.fbAddDoc(window.fbCollection(window.fbDb, GAME_DB_PATHS.SUGGESTIONS), {
                             message: this.suggestionModal.message,
                             timestamp: window.fbServerTimestamp(),
                             userAgent: navigator.userAgent,
                             lang: this.currentLang,
-                            version: 'v10.311'
+                            // [MODIFIED] 버전 정보도 GAME_CONFIG 참조
+                            version: GAME_CONFIG.VERSION
                         });
 
                         this.showFeedback('MESSAGE SENT!', 'correct');
@@ -1715,13 +1723,13 @@
                 },
 
                 async loadHighScores() {
-                    // viewingSeason이 없으면 현재 시즌으로 안전장치
                     const targetSeasonId = this.viewingSeason ? this.viewingSeason.id : this.currentSeason.id;
 
                     const q = window.fbQuery(
-                        window.fbCollection(window.fbDb, "ranks"),
+                        // [MODIFIED] GAME_DB_PATHS 적용
+                        window.fbCollection(window.fbDb, GAME_DB_PATHS.RANKS),
                         window.fbWhere("type", "==", "main"),
-                        window.fbWhere("season", "==", targetSeasonId), // 여기를 수정함
+                        window.fbWhere("season", "==", targetSeasonId),
                         window.fbOrderBy("score", "desc"),
                         window.fbLimit(10)
                     );
@@ -1741,9 +1749,10 @@
                     const targetSeasonId = this.viewingSeason ? this.viewingSeason.id : this.currentSeason.id;
 
                     const q = window.fbQuery(
-                        window.fbCollection(window.fbDb, "ranks"),
+                        // [MODIFIED] GAME_DB_PATHS 적용
+                        window.fbCollection(window.fbDb, GAME_DB_PATHS.RANKS),
                         window.fbWhere("type", "==", "extra"),
-                        window.fbWhere("season", "==", targetSeasonId), // 여기를 수정함
+                        window.fbWhere("season", "==", targetSeasonId),
                         window.fbOrderBy("score", "desc"),
                         window.fbLimit(10)
                     );
@@ -1830,7 +1839,10 @@
                         this.stage = 1;
                         this.como = 5;
                         this.totalScore = 0;
-                        this.amuletLevel = 0; this.assistLevel = 0; this.timePlusLevel = 0; this.scanLevel = 0;
+                        this.amuletLevel = 0;
+                        this.assistLevel = 0;
+                        this.timePlusLevel = 0;
+                        this.scanLevel = 0;
                         this.reloadBoost = 20;
                         this.inventory = [];
 
@@ -1840,13 +1852,14 @@
                                 ...randomMember,
                                 inventoryId: Date.now() + Math.random(),
                                 isSpecial: false,
-                                type: 'member_card'
+                                type: GAME_CARD_TYPES.MEMBER
                             });
                         }
 
                         this.gravityVotes = {};
                         this.stageGrades = [];
-                        this.gameState = 'intro'; this.introStep = 1;
+                        this.gameState = 'intro';
+                        this.introStep = 1;
                     } else {
                         this.gameState = 'intermission';
                         this.startStageLogic();
@@ -2165,9 +2178,9 @@
                         return null;
                     }
 
-                    // 1. 이 유저가 이번 시즌에 등록한 *모든* 기록을 찾습니다 (main, extra 둘 다)
                     const allRecordsQuery = window.fbQuery(
-                        window.fbCollection(window.fbDb, "ranks"),
+                        // [MODIFIED] GAME_DB_PATHS 적용
+                        window.fbCollection(window.fbDb, GAME_DB_PATHS.RANKS),
                         window.fbWhere("season", "==", this.currentSeason.id),
                         window.fbWhere("userId", "==", this.activeUserId)
                     );
@@ -2175,34 +2188,25 @@
                     const snapshot = await window.fbGetDocs(allRecordsQuery);
 
                     if (snapshot.empty) {
-                        // 1A. 이 유저는 이번 시즌 *완전* 신규 랭커입니다.
                         this.existingRecord = null;
-                        this.playerName = 'SSS'; // 기본값으로 리셋
+                        this.playerName = 'SSS';
                         return null;
                     }
 
-                    // 1B. 이 유저는 'main' 또는 'extra'에 *최소 하나*의 기록이 있습니다.
-                    // *가장 먼저* 찾은 기록에서 닉네임을 가져와 설정합니다 (닉네임 고정)
                     this.playerName = snapshot.docs[0].data().name;
 
-                    // 2. 이제 *현재 플레이한 'type'*에 해당하는 기록이 있는지, 갱신 가능한지 확인합니다.
                     const specificDoc = snapshot.docs.find(doc => doc.data().type === type);
 
                     if (specificDoc) {
-                        // 2A. 이 'type'에 대한 기록이 이미 있습니다.
                         const data = specificDoc.data();
-                        // 갱신 가능한지 점수 체크
                         if (currentScore > data.score) {
                             this.existingRecord = { id: specificDoc.id, ...data };
-                            return data; // 갱신 가능
+                            return data;
                         } else {
-                            // 점수가 더 낮으므로 갱신은 아니지만, 기록은 존재함 (표시용)
                             this.existingRecord = { id: specificDoc.id, ...data };
-                            return data; // (goToIntermission에서 'hasExisting'으로 사용)
+                            return data;
                         }
                     } else {
-                        // 2B. 이 'type'에 대한 기록은 없습니다 (예: 'main'은 있는데 'extra'는 처음).
-                        // 닉네임은 이미 설정되었으므로, '신규 등록'으로 처리합니다.
                         this.existingRecord = null;
                         return null;
                     }
@@ -2233,7 +2237,6 @@
                         return;
                     }
 
-                    // [FIX] 기존 기록이 없어서 새로 등록하는 경우 (신규 유저 OR 교차 등록)
                     if (!this.existingRecord) {
                         if (this.playerName.length !== 3) {
                             this.showFeedback('MUST BE 3 CHARS', 'incorrect');
@@ -2247,16 +2250,14 @@
                             return;
                         }
 
-                        // 중복 닉네임 체크 (같은 시즌 내)
                         const q = window.fbQuery(
-                            window.fbCollection(window.fbDb, "ranks"),
+                            // [MODIFIED] GAME_DB_PATHS 적용
+                            window.fbCollection(window.fbDb, GAME_DB_PATHS.RANKS),
                             window.fbWhere("season", "==", this.currentSeason.id),
                             window.fbWhere("name", "==", this.playerName)
                         );
                         const snapshot = await window.fbGetDocs(q);
 
-                        // [CRITICAL FIX] 닉네임이 존재하더라도, 그 주인이 '나(activeUserId)'라면 중복이 아님 (교차 등록 허용)
-                        // snapshot이 비어있지 않은데, 그 중 내 ID가 아닌 문서가 하나라도 있다면 '타인이 선점한 것'으로 간주
                         if (!snapshot.empty) {
                             const isTakenByOther = snapshot.docs.some(doc => doc.data().userId !== this.activeUserId);
 
@@ -2288,44 +2289,41 @@
 
                     const scoreData = {
                         name: this.playerName,
-                        score: (this.stage === 11) ? this.lastStageScore : this.totalScore,
+                        score: (this.stage === GAME_STAGES.OVERTIME) ? this.lastStageScore : this.totalScore,
                         stage: this.stage,
                         items: itemsSnapshot,
                         specialCards: specialCardsSnapshot,
                         season: this.currentSeason.id,
                         userId: this.activeUserId,
                         timestamp: window.fbServerTimestamp(),
-                        type: (this.stage === 11) ? 'extra' : 'main',
+                        type: (this.stage === GAME_STAGES.OVERTIME) ? 'extra' : 'main',
                         profileBadge: this.userProfile.selectedBadge || this.DEFAULT_BADGE
                     };
 
                     try {
                         if (this.existingRecord) {
-                            // Update Existing
-                            const docRef = window.fbDoc(window.fbDb, "ranks", this.existingRecord.id);
+                            // [MODIFIED] GAME_DB_PATHS 적용
+                            const docRef = window.fbDoc(window.fbDb, GAME_DB_PATHS.RANKS, this.existingRecord.id);
                             await window.fbUpdateDoc(docRef, scoreData);
                             this.showFeedback('RECORD UPDATED!', 'correct');
                         } else {
-                            // Create New
-                            await window.fbAddDoc(window.fbCollection(window.fbDb, "ranks"), scoreData);
+                            // [MODIFIED] GAME_DB_PATHS 적용
+                            await window.fbAddDoc(window.fbCollection(window.fbDb, GAME_DB_PATHS.RANKS), scoreData);
                             this.showFeedback('AGENT REGISTERED!', 'correct');
                         }
 
-                        // [NEW] 프로필에 시즌 코드네임 스탬프 찍기 (저비용 구현)
-                        // 랭킹 등록에 성공했다면, 내 프로필에 '이번 시즌 활동명'을 기록합니다.
-                        const userProfileRef = window.fbDoc(window.fbDb, "userProfiles", this.activeUserId);
-                        // userProfile이 없을 수도 있으니 setDoc에 merge 옵션 사용
+                        // [MODIFIED] GAME_DB_PATHS 적용
+                        const userProfileRef = window.fbDoc(window.fbDb, GAME_DB_PATHS.PROFILES, this.activeUserId);
                         await window.fbSetDoc(userProfileRef, {
                             lastActiveSeason: this.currentSeason.id,
                             seasonCodename: this.playerName
                         }, { merge: true });
 
-                        // 로컬 데이터도 즉시 갱신하여 UI 반영
                         this.userProfile.lastActiveSeason = this.currentSeason.id;
                         this.userProfile.seasonCodename = this.playerName;
 
                         setTimeout(() => {
-                            if (this.stage === 11) {
+                            if (this.stage === GAME_STAGES.OVERTIME) {
                                 this.gameState = 'intermission';
                             } else {
                                 this.gameState = 'ending';
@@ -2464,13 +2462,11 @@
                     const block = this.currentBlock;
                     if (!block) return;
 
-                    // 1. 기본 점수 계산
                     let baseScore = 0;
                     let correctCount = 0;
                     let wrongCount = 0;
                     let penalty = 0;
 
-                    // [NEW] 리포트용 점수 요소 초기화 (이 블록에서 발생한 것만)
                     let blockFailPenalty = 0;
                     let blockTimeOverPenalty = 0;
 
@@ -2486,7 +2482,7 @@
                         let matchIndex = -1;
 
                         if (block.bundleType === 'birthday') {
-                            if (card.type === 'member_card') {
+                            if (card.type === GAME_CARD_TYPES.MEMBER) {
                                 matchIndex = blockChecklist.indexOf(card.birthday);
                             }
                         } else {
@@ -2501,24 +2497,21 @@
                         if (isMatch) {
                             baseScore += GAME_SCORING.CORRECT_CARD;
                             correctCount++;
-                        }
-                        else if (card.type === 'joker_card' && blockChecklist.length > 0) {
+                        } else if (card.type === GAME_CARD_TYPES.JOKER && blockChecklist.length > 0) {
                             baseScore += GAME_SCORING.CORRECT_CARD;
                             correctCount++;
                             blockChecklist.splice(0, 1);
-                        }
-                        else {
+                        } else {
                             wrongCount++;
-                            if (card.type === 'fail_card') {
+                            if (card.type === GAME_CARD_TYPES.FAIL) {
                                 penalty += GAME_SCORING.FAIL_PENALTY;
-                                blockFailPenalty += GAME_SCORING.FAIL_PENALTY; // [NEW] 집계
+                                blockFailPenalty += GAME_SCORING.FAIL_PENALTY;
                             }
                         }
                     }
 
                     baseScore -= penalty;
 
-                    // 2. 보너스 점수 계산
                     let perfectBonusScore = 0;
                     let chainBonusScore = 0;
 
@@ -2534,7 +2527,6 @@
                         this.consecutivePerfects++;
                         this.chainCount = Math.max(0, this.consecutivePerfects - 1);
                         if (this.chainCount > 0) {
-                            // [REFACTOR] Use Constant: 5 -> GAME_SCORING.CHAIN_BONUS
                             chainBonusScore = this.chainCount * GAME_SCORING.CHAIN_BONUS;
                             this.playSound('chain');
                         }
@@ -2545,12 +2537,11 @@
                         if (!isTimeOver) this.playSound('clear');
                     }
 
-                    // 3. 최종 점수 합산
                     let finalBlockScore = baseScore + perfectBonusScore + chainBonusScore;
 
                     if (isTimeOver) {
                         finalBlockScore -= GAME_SCORING.TIME_OVER_PENALTY;
-                        blockTimeOverPenalty = GAME_SCORING.TIME_OVER_PENALTY; // [NEW] 집계
+                        blockTimeOverPenalty = GAME_SCORING.TIME_OVER_PENALTY;
                         this.playSound('fail');
                     }
 
@@ -2561,7 +2552,6 @@
 
                     this.score = Math.max(0, this.score + finalBlockScore);
 
-                    // [NEW] 4. Stage Grades에 상세 점수 추가 (리포트용)
                     this.currentStageBlockDetails.push({
                         baseScore: baseScore,
                         perfectBonusScore: perfectBonusScore,
@@ -2575,7 +2565,6 @@
                         maxChain: this.chainCount
                     });
 
-                    // 5. 피드백 메시지 생성 (간결형: +총점 (🎯기본 ✨퍼펙트 ⛓️체인))
                     let feedbackMsg = '';
 
                     if (isTimeOver) {
@@ -2586,13 +2575,11 @@
 
                         let details = [];
 
-                        // 보너스가 하나라도 있으면 상세 내역 표시 (기본 점수 포함)
                         if (perfectBonusScore > 0 || chainBonusScore > 0) {
-                            details.push(`🎯${baseScore}`); // 기본 점수 (이모지 추가)
+                            details.push(`🎯${baseScore}`);
                             if (perfectBonusScore > 0) details.push(`✨${perfectBonusScore}`);
                             if (chainBonusScore > 0) details.push(`⛓️${chainBonusScore}`);
 
-                            // 괄호로 감싸고 공백으로 구분: +155 (🎯80 ✨50 ⛓️25)
                             feedbackMsg += ` (${details.join(' ')})`;
                         }
                     }
@@ -2623,12 +2610,10 @@
                         if (member) {
                             newCardData = member;
                         } else {
-                            // [REFACTOR] Use Global Constant directly
                             newCardData = GAME_MODHAUS_DATA.find(m => m.sNumber === 'X');
                         }
 
-                        if (newCardData.type === 'fail_card' && this.amuletLevel > 0 && Math.random() < GAME_BALANCE.CHANCE_AMULET) {
-                            // [REFACTOR] Use Global Constant directly
+                        if (newCardData.type === GAME_CARD_TYPES.FAIL && this.amuletLevel > 0 && Math.random() < GAME_BALANCE.CHANCE_AMULET) {
                             newCardData = GAME_ARTMS_DATA[Math.floor(Math.random() * GAME_ARTMS_DATA.length)];
                             this.showFeedback(this.translate('feedback_amulet_activated'), 'correct');
                         }
@@ -2649,8 +2634,11 @@
                         isSpecial: false
                     };
 
-                    if (this.completedCards.length < 8) this.completedCards.push(newCard);
-                    else { this.completedCards.shift(); this.completedCards.push(newCard); }
+                    if (this.completedCards.length < GAME_LIMITS.SLOT_MAX) this.completedCards.push(newCard);
+                    else {
+                        this.completedCards.shift();
+                        this.completedCards.push(newCard);
+                    }
 
                     this.updateMatchedOrders();
 
@@ -2672,7 +2660,7 @@
                         let matchIndexInRemaining = -1;
 
                         if (this.currentBlock.bundleType === 'birthday') {
-                            matchIndexInRemaining = remainingSlotCards.findIndex(item => item.card && item.card.type === 'member_card' && item.card.birthday === order.birthday);
+                            matchIndexInRemaining = remainingSlotCards.findIndex(item => item.card && item.card.type === GAME_CARD_TYPES.MEMBER && item.card.birthday === order.birthday);
                         } else {
                             matchIndexInRemaining = remainingSlotCards.findIndex(item => item.card && item.card.sNumber === order.sNumber);
                         }
@@ -2866,50 +2854,63 @@
                 startGachaAnimation() {
                     const cost = this.ITEM_INFO.objekt.cost;
 
-                    // 1. 비용 체크
                     if (this.como < cost) {
                         this.showFeedback('NOT ENOUGH COMO!', 'incorrect');
                         return;
                     }
 
-                    // [OPTIMIZATION] 인벤토리 체크를 최상단으로 이동 (이 부분이 수정됨)
-                    if (this.inventory.length >= this.inventoryMaxSize) {
+                    if (this.inventory.length >= GAME_LIMITS.INVENTORY_MAX) {
                         this.showFeedback(this.translate('feedback_collect_full'), 'incorrect');
                         this.closeGachaModal();
-                        return; // 돈 안 내고 종료
+                        return;
                     }
 
-                    // 2. 비용 지불 및 연출 시작
                     this.como -= cost;
                     this.playSound('gacha');
                     this.gachaState = 'opening';
 
-                    // 3. 결과 결정 및 연출 (setTimeout 0 제거됨)
                     if (Math.random() < GAME_BALANCE.CHANCE_JOKER) {
-                        this.gachaResultCard = { ...GAME_MODHAUS_DATA.find(m => m.sNumber === 'MH'), inventoryId: Date.now() + Math.random(), isSpecial: false, type: 'joker_card' };
+                        this.gachaResultCard = {
+                            ...GAME_MODHAUS_DATA.find(m => m.sNumber === 'MH'),
+                            inventoryId: Date.now() + Math.random(),
+                            isSpecial: false,
+                            type: GAME_CARD_TYPES.JOKER
+                        };
                         setTimeout(() => {
                             this.gachaState = 'joker_flash';
-                            setTimeout(() => { this.gachaState = 'result'; }, 1500);
+                            setTimeout(() => {
+                                this.gachaState = 'result';
+                            }, 1500);
                         }, 2000);
                     } else {
                         const randomMember = this.memberData[Math.floor(Math.random() * this.memberData.length)];
-                        this.gachaResultCard = { ...randomMember, inventoryId: Date.now() + Math.random(), isSpecial: false, type: 'member_card' };
-                        setTimeout(() => { this.gachaState = 'result'; }, 2000);
+                        this.gachaResultCard = {
+                            ...randomMember,
+                            inventoryId: Date.now() + Math.random(),
+                            isSpecial: false,
+                            type: GAME_CARD_TYPES.MEMBER
+                        };
+                        setTimeout(() => {
+                            this.gachaState = 'result';
+                        }, 2000);
                     }
                 },
                 confirmGachaResult() {
-                    // v10.197 FIX: ITEM_INFO.objekt.cost 사용
                     const cost = this.ITEM_INFO.objekt.cost;
                     if (this.gachaResultCard) {
-                        if (this.inventory.length >= this.inventoryMaxSize) {
-                            this.como += cost; // v10.197 FIX: 환불 시에도 cost 변수 사용
+                        if (this.inventory.length >= GAME_LIMITS.INVENTORY_MAX) {
+                            this.como += cost;
                             this.showFeedback(this.translate('feedback_collect_full'), 'incorrect');
                             this.closeGachaModal();
                             return;
                         }
                         this.inventory.push(this.gachaResultCard);
-                        if (this.gachaResultCard.type === 'joker_card') { this.showFeedback(this.translate('feedback_joker_acquired'), 'correct'); }
-                        else { this.showFeedback(`${this.gachaResultCard.sNumber} ${this.translate('feedback_card_acquired')}`, 'correct'); this.checkCraftingAvailability(this.gachaResultCard); }
+                        if (this.gachaResultCard.type === GAME_CARD_TYPES.JOKER) {
+                            this.showFeedback(this.translate('feedback_joker_acquired'), 'correct');
+                        } else {
+                            this.showFeedback(`${this.gachaResultCard.sNumber} ${this.translate('feedback_card_acquired')}`, 'correct');
+                            this.checkCraftingAvailability(this.gachaResultCard);
+                        }
                     }
                     this.closeGachaModal();
                 },
@@ -2935,29 +2936,48 @@
                 },
                 startSpin() {
                     if (this.isCrafting) return;
-                    if (!this.selectedInventoryCard) { this.showFeedback('SPIN FAILED...', 'incorrect'); return; }
-                    if (this.intermissionSpinCount >= 3) {
+                    if (!this.selectedInventoryCard) {
+                        this.showFeedback('SPIN FAILED...', 'incorrect');
+                        return;
+                    }
+                    if (this.intermissionSpinCount >= GAME_LIMITS.SPIN_MAX) {
                         return;
                     }
                     this.playSound('click');
                     this.intermissionSpinCount++;
-                    this.selectedInventoryCardForSpin = this.selectedInventoryCard; this.selectedInventoryCard = null; this.spinResult = null; this.generateSpinGrid(); this.isSpinning = true;
+                    this.selectedInventoryCardForSpin = this.selectedInventoryCard;
+                    this.selectedInventoryCard = null;
+                    this.spinResult = null;
+                    this.generateSpinGrid();
+                    this.isSpinning = true;
                 },
                 generateSpinGrid() {
                     this.isSpinGridReady = false;
 
                     const newSpinGrid = [];
-                    newSpinGrid.push({ ...this.memberData[Math.floor(Math.random() * this.memberData.length)], inventoryId: Date.now() + Math.random(), isSpecial: true, type: 'member_card' });
+                    newSpinGrid.push({
+                        ...this.memberData[Math.floor(Math.random() * this.memberData.length)],
+                        inventoryId: Date.now() + Math.random(),
+                        isSpecial: true,
+                        type: GAME_CARD_TYPES.MEMBER
+                    });
 
-                    // [REFACTOR] Use Global Constant directly
-                    for (let i = 0; i < 2; i++) newSpinGrid.push({ ...(GAME_MODHAUS_DATA.find(m => m.sNumber === 'X')), inventoryId: Date.now() + Math.random(), isSpecial: false });
+                    for (let i = 0; i < 2; i++) newSpinGrid.push({
+                        ...(GAME_MODHAUS_DATA.find(m => m.sNumber === 'X')),
+                        inventoryId: Date.now() + Math.random(),
+                        isSpecial: false
+                    });
 
-                    for (let i = 0; i < 13; i++) newSpinGrid.push({ ...this.memberData[Math.floor(Math.random() * this.memberData.length)], inventoryId: Date.now() + Math.random(), isSpecial: false, type: 'member_card' });
+                    for (let i = 0; i < 13; i++) newSpinGrid.push({
+                        ...this.memberData[Math.floor(Math.random() * this.memberData.length)],
+                        inventoryId: Date.now() + Math.random(),
+                        isSpecial: false,
+                        type: GAME_CARD_TYPES.MEMBER
+                    });
                     this.shuffleArray(newSpinGrid);
 
                     this.spinGrid.splice(0, this.spinGrid.length, ...newSpinGrid);
 
-                    // [MODIFIED] Delay reduced to 30ms
                     setTimeout(() => {
                         this.$nextTick(() => {
                             this.isSpinGridReady = true;
@@ -2973,11 +2993,9 @@
                     try {
                         const index = this.inventory.findIndex(c => c.inventoryId === this.selectedInventoryCardForSpin.inventoryId);
                         if (index > -1) {
-                            if (card.type !== 'fail_card') {
-                                // 성공: 카드 교체
+                            if (card.type !== GAME_CARD_TYPES.FAIL) {
                                 this.inventory.splice(index, 1, card);
 
-                                // [MODIFIED] 스페셜 카드 획득 시 별도 알림 표시
                                 if (card.isSpecial) {
                                     this.showFeedback(`✨ ${card.sNumber} SPECIAL! ✨`, 'correct');
                                 } else {
@@ -2985,7 +3003,6 @@
                                     this.checkCraftingAvailability(card);
                                 }
                             } else {
-                                // 실패: 카드 소멸
                                 this.inventory.splice(index, 1);
                                 this.showFeedback(this.translate('feedback_spin_failed'), 'incorrect');
                             }
@@ -3026,20 +3043,33 @@
                     }, 300);
                 },
 
-                canCraft() { if (!this.selectedInventoryCard || this.selectedInventoryCard.isSpecial) return false; return this.inventory.filter(c => c.sNumber === this.selectedInventoryCard.sNumber && !c.isSpecial).length >= 4; },
+                canCraft() {
+                    if (!this.selectedInventoryCard || this.selectedInventoryCard.isSpecial) return false;
+                    return this.inventory.filter(c => c.sNumber === this.selectedInventoryCard.sNumber && !c.isSpecial).length >= GAME_LIMITS.CRAFT_REQ;
+                },
                 startGridCraft() {
                     if (this.isSpinning) return;
-                    if (!this.canCraft()) { this.showFeedback(this.translate('feedback_need_four_cards'), 'incorrect'); return; }
+                    if (!this.canCraft()) {
+                        this.showFeedback(this.translate('feedback_need_four_cards'), 'incorrect');
+                        return;
+                    }
                     this.playSound('gacha');
-                    this.craftingCard = this.selectedInventoryCard; this.isCrafting = true; this.selectedInventoryCard = null;
+                    this.craftingCard = this.selectedInventoryCard;
+                    this.isCrafting = true;
+                    this.selectedInventoryCard = null;
                     setTimeout(() => {
                         let removedCount = 0;
                         for (let i = this.inventory.length - 1; i >= 0; i--) {
-                            if (this.inventory[i].sNumber === this.craftingCard.sNumber && !this.inventory[i].isSpecial && removedCount < 4) {
-                                this.inventory.splice(i, 1); removedCount++;
+                            if (this.inventory[i].sNumber === this.craftingCard.sNumber && !this.inventory[i].isSpecial && removedCount < GAME_LIMITS.CRAFT_REQ) {
+                                this.inventory.splice(i, 1);
+                                removedCount++;
                             }
                         }
-                        const specialCard = { ...this.craftingCard, inventoryId: Date.now() + Math.random(), isSpecial: true };
+                        const specialCard = {
+                            ...this.craftingCard,
+                            inventoryId: Date.now() + Math.random(),
+                            isSpecial: true
+                        };
                         this.inventory.push(specialCard);
                         this.showFeedback(`✨ ${specialCard.sNumber} ${this.translate('feedback_grid_complete')}`, 'correct');
 
@@ -3055,50 +3085,39 @@
                 getGravityVotes(poolKey) { return this.bossPools[poolKey] || []; },
 
                 initializeGravityVotes() {
-                    // this.stage는 '다음' 스테이지를 의미함
-
-                    // 1. S11 (Overtime) - 글로벌/시즌 투표 (Firestore)
-                    if (this.stage === 11) {
-                        // S1-S10에서 사용하던 로컬 투표 데이터 초기화 (선택 사항)
+                    if (this.stage === GAME_STAGES.OVERTIME) {
                         this.localGravityVotes = {};
 
-                        // 이미 리스너가 연결되어 있다면 중복 실행 방지
                         if (this.seasonGravityListener) {
                             console.log("Season Gravity listener already active.");
                             return;
                         }
 
                         console.log(`Connecting to Season Gravity: ${this.currentSeason.id}`);
-                        const docRef = window.fbDoc(window.fbDb, "seasonGravity", this.currentSeason.id);
+                        // [MODIFIED] GAME_DB_PATHS 적용
+                        const docRef = window.fbDoc(window.fbDb, GAME_DB_PATHS.GRAVITY, this.currentSeason.id);
 
                         this.seasonGravityListener = window.fbOnSnapshot(docRef, (doc) => {
                             if (doc.exists()) {
                                 this.seasonGravityVotes = doc.data();
                                 console.log("Season Gravity data updated:", this.seasonGravityVotes);
                             } else {
-                                // 아직 아무도 투표 안 함 (시즌 첫 투표)
                                 console.log("Season Gravity doc not found, initializing locally.");
-                                // MSNZ 보스 풀로 초기화
                                 this.seasonGravityVotes = { 'Moon': 0, 'Sun': 0, 'Neptune': 0, 'Zenith': 0 };
                             }
                         }, (error) => {
                             console.error("Error listening to Season Gravity: ", error);
-                            // 에러 시 로컬 0으로 초기화
                             this.seasonGravityVotes = { 'Moon': 0, 'Sun': 0, 'Neptune': 0, 'Zenith': 0 };
                         });
 
-                        // 2. S1-S10 (Standard) - 로컬 투표
                     } else {
-                        // Overtime(S11)을 플레이하다가 타이틀로 돌아가 Standard를 시작할 경우,
-                        // S11의 리스너를 반드시 구독 해제해야 함.
                         if (this.seasonGravityListener) {
                             this.seasonGravityListener(); // Unsubscribe
                             this.seasonGravityListener = null;
-                            this.seasonGravityVotes = {}; // 글로벌 투표 데이터 비우기
+                            this.seasonGravityVotes = {};
                             console.log("Season Gravity listener stopped (Switched to Standard).");
                         }
 
-                        // 기존 로컬 투표 로직 (S1-S10)
                         const configIndex = (this.stage === 10) ? this.stage : Math.min(this.stage - 1, this.stageConfig.length - 1);
                         const nextConfig = this.stageConfig[configIndex];
 
@@ -3122,26 +3141,24 @@
                     this.como--;
                     this.playSound('buy');
 
-                    // 1. S11 (Overtime) - 글로벌/시즌 투표 (Firestore)
-                    if (this.stage === 11) {
+                    if (this.stage === GAME_STAGES.OVERTIME) {
                         if (this.currentSeason.state === 'frozen') {
                             this.showFeedback('SEASON CLOSED', 'incorrect');
                             this.como++; // 코모 환불
                             return;
                         }
 
-                        const docRef = window.fbDoc(window.fbDb, "seasonGravity", this.currentSeason.id);
+                        // [MODIFIED] GAME_DB_PATHS 적용
+                        const docRef = window.fbDoc(window.fbDb, GAME_DB_PATHS.GRAVITY, this.currentSeason.id);
                         const updateData = {};
                         updateData[bossName] = window.fbIncrement(1);
 
-                        // setDoc (merge: true)는 문서가 없으면 생성, 있으면 필드만 업데이트/추가. (안전함)
                         window.fbSetDoc(docRef, updateData, { merge: true }).catch((e) => {
                             console.error("Failed to vote (Season Gravity): ", e);
                             this.showFeedback('VOTE FAILED', 'incorrect');
                             this.como++; // 코모 환불
                         });
 
-                        // 2. S1-S10 (Standard) - 로컬 투표
                     } else {
                         this.localGravityVotes[bossName] = (this.localGravityVotes[bossName] || 0) + 1;
                     }
@@ -3166,10 +3183,10 @@
                     if (!this.currentBlock) return false;
                     if (!card) return false;
 
-                    if (card.type === 'joker_card') return true;
+                    if (card.type === GAME_CARD_TYPES.JOKER) return true;
 
                     if (this.currentBlock.bundleType === 'birthday') {
-                        if (card.type !== 'member_card') return false;
+                        if (card.type !== GAME_CARD_TYPES.MEMBER) return false;
                         const requiredCount = this.currentBlock.members.filter(m => m.birthday === card.birthday).length;
                         if (requiredCount === 0) return false;
                         let previousCount = 0;
@@ -3237,12 +3254,6 @@
             <template x-if="gameState === 'start'">
                 <div class="absolute inset-0 w-full h-full flex flex-col justify-center items-center z-50 title-bg-effect overflow-hidden"
                     x-transition.opacity.duration.500ms>
-
-                    <template x-for="i in 8">
-                        <div class="floating-objekt"
-                            :style="`top: ${Math.random() * 80 + 10}%; left: ${Math.random() * 80 + 10}%; animation-delay: -${Math.random() * 20}s; animation-duration: ${20 + Math.random() * 10}s`">
-                        </div>
-                    </template>
 
                     <div class="z-10 text-center p-8 flex flex-col items-center w-full">
                         <h1 class="text-7xl font-black mb-2 tracking-tighter leading-none"><span
@@ -3904,14 +3915,13 @@
                     </h3>
 
                     <div class="text-left space-y-3 bg-black/30 p-4 rounded-xl mb-6">
-                        <div
-                            class="text-2xl font-bold text-yellow-300 border-b border-white/10 pb-2 flex justify-between">
+                        <div class="text-2xl font-bold text-yellow-300 border-b border-white/10 pb-2 flex justify-between">
                             <span>TOTAL SCORE</span>
                             <span x-text="report.score"></span>
                         </div>
 
                         <div class="text-sm font-bold text-gray-400 flex justify-between">
-                            <span>CLEARED BLOCKS (NO TIME-OUT)</span>
+                            <span>CLEARED BLOCKS</span>
                             <span class="text-white"><span x-text="report.clearedBlocks"></span> / <span
                                     x-text="report.maxBlocks"></span></span>
                         </div>
@@ -3920,24 +3930,18 @@
 
                         <h4 class="text-base font-bold text-green-400 mb-1">SCORE BREAKDOWN (+)</h4>
                         <div class="pl-3 space-y-1">
-                            <div class="text-sm font-medium text-gray-300 flex justify-between"><span>BASE SCORE
-                                    🎯</span><span x-text="report.baseScore"></span></div>
-                            <div class="text-sm font-medium text-gray-300 flex justify-between"><span>PERFECT BONUS
-                                    ✨</span><span x-text="report.perfectBonusScore"></span></div>
-                            <div class="text-sm font-medium text-gray-300 flex justify-between"><span>CHAIN BONUS
-                                    ⛓️</span><span x-text="report.chainBonusScore"></span></div>
+                            <div class="text-sm font-medium text-gray-300 flex justify-between"><span>🎯 BASE</span><span x-text="report.baseScore"></span></div>
+                            <div class="text-sm font-medium text-gray-300 flex justify-between"><span>✨ PERFECT</span><span x-text="report.perfectBonusScore"></span></div>
+                            <div class="text-sm font-medium text-gray-300 flex justify-between"><span>⛓️ CHAIN</span><span x-text="report.chainBonusScore"></span></div>
                         </div>
 
                         <hr class="border-white/10">
 
                         <h4 class="text-base font-bold text-red-400 mb-1">PENALTY (-)</h4>
                         <div class="pl-3 space-y-1">
-                            <div class="text-sm font-medium text-gray-300 flex justify-between"><span>FAIL PENALTY
-                                    ❌</span><span x-text="report.failPenalty"></span></div>
-                            <div class="text-sm font-medium text-gray-300 flex justify-between"><span>TIME OVER PENALTY
-                                    ⏳</span><span x-text="report.timeOverPenalty"></span></div>
-                            <div class="text-sm font-medium text-gray-300 flex justify-between"><span>RELOAD COST
-                                    🔄</span><span x-text="report.reloadPenalty"></span></div>
+                            <div class="text-sm font-medium text-gray-300 flex justify-between"><span>❌ FAIL</span><span x-text="report.failPenalty"></span></div>
+                            <div class="text-sm font-medium text-gray-300 flex justify-between"><span>⏳ TIME OVER</span><span x-text="report.timeOverPenalty"></span></div>
+                            <div class="text-sm font-medium text-gray-300 flex justify-between"><span>🔄 RELOAD</span><span x-text="report.reloadPenalty"></span></div>
                         </div>
 
                         <hr class="border-white/10">
@@ -3946,7 +3950,7 @@
                         <div class="pl-3 grid grid-cols-2 gap-2 text-sm font-medium text-gray-300">
                             <div class="flex justify-between"><span>MAX CHAIN</span><span
                                     x-text="report.maxChain"></span></div>
-                            <div class="flex justify-between"><span>PERFECT BLOCKS</span><span
+                            <div class="flex justify-between"><span>PERFECT</span><span
                                     x-text="report.perfectCount"></span></div>
                         </div>
                     </div>
@@ -4003,7 +4007,7 @@
                     <div class="text-center mb-6 flex items-center justify-center gap-3">
     
                         <button @click="openArchive()" 
-                            class="px-3 py-1 rounded-lg border-2 transition-all active:scale-95 hover:bg-white/5 focus:outline-none"
+                            class="px-2 py-0.5 rounded-lg border-2 transition-all active:scale-95 hover:bg-white/5 focus:outline-none"
                             :style="`border-color: ${viewingSeason?.state === 'frozen' ? '#4B5563' : viewingSeason?.color};`">
                             
                             <span class="text-xl font-black tracking-widest text-glow-sm"
@@ -4033,7 +4037,7 @@
                             
                             <template x-if="viewingSeason?.id !== currentSeason.id">
                                 <span class="ml-3 text-xs font-bold text-gray-500 font-mono tracking-tight"
-                                    x-text="viewingSeason?.startDate">
+                                    x-text="viewingSeason?.dateRange">
                                 </span>
                             </template>
                         </div>
@@ -4092,16 +4096,26 @@
                                             x-if="entry.items && (entry.items.reload > 0 || entry.items.time > 0 || entry.items.scan > 0 || entry.items.amulet > 0 || entry.items.assist > 0)">
                                             <div
                                                 class="flex space-x-1 bg-black/40 px-2 py-1 rounded-full border border-white/5">
-                                                <template x-if="entry.items.reload > 0"><span class="text-xs"
-                                                        title="Reload">🔄</span></template>
-                                                <template x-if="entry.items.time > 0"><span class="text-xs"
-                                                        title="Time+">⏳</span></template>
-                                                <template x-if="entry.items.scan > 0"><span class="text-xs"
-                                                        title="Scan">🔍</span></template>
-                                                <template x-if="entry.items.amulet > 0"><span class="text-xs"
-                                                        title="Amulet">🌙</span></template>
-                                                <template x-if="entry.items.assist > 0"><span class="text-xs"
-                                                        title="Assist">🤝</span></template>
+                                                
+                                                <template x-if="entry.items.reload > 0">
+                                                    <span class="text-xs" :title="ITEM_INFO.reload.title" x-text="ITEM_INFO.reload.icon"></span>
+                                                </template>
+                                                
+                                                <template x-if="entry.items.time > 0">
+                                                    <span class="text-xs" :title="ITEM_INFO.timePlus.title" x-text="ITEM_INFO.timePlus.icon"></span>
+                                                </template>
+                                                
+                                                <template x-if="entry.items.scan > 0">
+                                                    <span class="text-xs" :title="ITEM_INFO.scan.title" x-text="ITEM_INFO.scan.icon"></span>
+                                                </template>
+                                                
+                                                <template x-if="entry.items.amulet > 0">
+                                                    <span class="text-xs" :title="ITEM_INFO.amulet.title" x-text="ITEM_INFO.amulet.icon"></span>
+                                                </template>
+                                                
+                                                <template x-if="entry.items.assist > 0">
+                                                    <span class="text-xs" :title="ITEM_INFO.assist.title" x-text="ITEM_INFO.assist.icon"></span>
+                                                </template>
                                             </div>
                                         </template>
                                     </div>
@@ -4207,7 +4221,7 @@
                                         </div>
                                         
                                         <div class="text-xs text-gray-500 font-mono mt-1">
-                                            <span x-text="season.startDate"></span> ~ 
+                                            <span x-text="season.dateRange"></span>
                                         </div>
                                     </div>
                                 </div>
@@ -4360,14 +4374,48 @@
                     <div class="glass-panel p-5 rounded-2xl mb-6 border border-white/10">
                         <h3 class="text-xl font-bold text-gray-300 mb-4 flex items-center">ABOUT</h3>
                         <div class="space-y-3 text-sm text-gray-400">
+                            
                             <div class="flex justify-between border-b border-white/5 pb-2">
                                 <span>VERSION</span>
-                                <span class="text-white font-mono">v10.311 (Badge System Refactor)</span>
+                                <span class="text-white font-mono" x-text="GAME_CONFIG.VERSION"></span>
                             </div>
+                            
                             <div class="flex justify-between border-b border-white/5 pb-2">
                                 <span>DEVELOPER</span>
                                 <span class="text-white">Kalsaver (2025)</span>
                             </div>
+
+                            <div class="flex justify-between border-b border-white/5 pb-2">
+                                <span>TECH STACK</span>
+                                <span class="text-white font-mono text-xs text-right">Alpine.js, Tailwind, Firebase</span>
+                            </div>
+
+                            <div class="pt-1 pb-2 border-b border-white/5">
+                                <p class="text-[10px] font-bold text-gray-500 mb-2 tracking-widest">BGM CREDITS (Pixabay)</p>
+                                <div class="space-y-1.5 text-[11px]">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-500 font-bold w-16">TITLE</span>
+                                        <span class="text-white text-right truncate flex-1">ValentinaLópezz - Calm Atmosphere</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-500 font-bold w-16">PLAY</span>
+                                        <span class="text-white text-right truncate flex-1">lofidreams - Velo City</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-500 font-bold w-16">BOSS</span>
+                                        <span class="text-white text-right truncate flex-1">Psychronic - Cyber Duel</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-500 font-bold w-24">INTERMISSION</span>
+                                        <span class="text-white text-right truncate flex-1">JuliusH - Urban Midnight</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-500 font-bold w-16">ENDING</span>
+                                        <span class="text-white text-right truncate flex-1">Jean Paul V - Atmosphere nuit calme (song 2)</span>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="pt-2 text-xs text-gray-500 leading-relaxed text-center">
                                 This is an unofficial fan game.<br>
                                 All original IPs belong to MODHAUS.
@@ -4576,25 +4624,50 @@
 
                         <div class="p-3 bg-white/5 rounded-xl">
                             <h4 class="text-lg font-bold text-gray-300 mb-2">PERMANENT UPGRADES</h4>
-                            <div class="flex flex-wrap gap-3 text-2xl">
-                                <template x-if="timePlusLevel > 0"><span class="bg-gray-700/50 p-2 rounded-lg"
-                                        :title="ITEM_INFO.timePlus.title"><span x-text="ITEM_INFO.timePlus.icon"></span>
-                                        TIME+ Lv.1</span></template>
-                                <template x-if="scanLevel > 0"><span class="bg-gray-700/50 p-2 rounded-lg"
-                                        :title="ITEM_INFO.scan.title"><span x-text="ITEM_INFO.scan.icon"></span> SCAN
-                                        Lv.1</span></template>
-                                <template x-if="amuletLevel > 0"><span class="bg-gray-700/50 p-2 rounded-lg"
-                                        :title="ITEM_INFO.amulet.title"><span x-text="ITEM_INFO.amulet.icon"></span>
-                                        AMULET Lv.1</span></template>
-                                <template x-if="assistLevel > 0"><span class="bg-gray-700/50 p-2 rounded-lg"
-                                        :title="ITEM_INFO.assist.title"><span x-text="ITEM_INFO.assist.icon"></span>
-                                        ASSIST Lv.1</span></template>
-                                <template x-if="reloadBoost > 0"><span class="bg-gray-700/50 p-2 rounded-lg"
-                                        :title="ITEM_INFO.reload.title"><span x-text="ITEM_INFO.reload.icon"></span>
-                                        RELOAD +<span x-text="reloadBoost"></span></span></template>
+                            
+                            <div class="flex flex-wrap justify-center gap-3 text-xl min-h-[2rem] items-center">
+                                
+                                <template x-if="timePlusLevel > 0">
+                                    <span class="bg-black/40 p-2 rounded-lg border border-white/10 shadow-sm"
+                                        :title="ITEM_INFO.timePlus.title">
+                                        <span x-text="ITEM_INFO.timePlus.icon"></span>
+                                    </span>
+                                </template>
+                                
+                                <template x-if="scanLevel > 0">
+                                    <span class="bg-black/40 p-2 rounded-lg border border-white/10 shadow-sm"
+                                        :title="ITEM_INFO.scan.title">
+                                        <span x-text="ITEM_INFO.scan.icon"></span>
+                                    </span>
+                                </template>
+                                
+                                <template x-if="amuletLevel > 0">
+                                    <span class="bg-black/40 p-2 rounded-lg border border-white/10 shadow-sm"
+                                        :title="ITEM_INFO.amulet.title">
+                                        <span x-text="ITEM_INFO.amulet.icon"></span>
+                                    </span>
+                                </template>
+                                
+                                <template x-if="assistLevel > 0">
+                                    <span class="bg-black/40 p-2 rounded-lg border border-white/10 shadow-sm"
+                                        :title="ITEM_INFO.assist.title">
+                                        <span x-text="ITEM_INFO.assist.icon"></span>
+                                    </span>
+                                </template>
+                                
+                                <template x-if="reloadBoost > 0">
+                                    <div class="relative bg-black/40 p-2 rounded-lg border border-white/10 shadow-sm"
+                                        :title="ITEM_INFO.reload.title">
+                                        <span x-text="ITEM_INFO.reload.icon"></span>
+                                        <span class="absolute -bottom-1 -right-1 bg-gray-700 text-[10px] px-1 rounded-full font-bold text-white border border-gray-500"
+                                            x-text="`+${reloadBoost}`"></span>
+                                    </div>
+                                </template>
+
                                 <template
-                                    x-if="timePlusLevel === 0 && scanLevel === 0 && amuletLevel === 0 && assistLevel === 0 && reloadBoost === 0"><span
-                                        class="text-gray-500 text-sm italic">NO UPGRADES ACQUIRED</span></template>
+                                    x-if="timePlusLevel === 0 && scanLevel === 0 && amuletLevel === 0 && assistLevel === 0 && reloadBoost === 0">
+                                    <span class="text-gray-500 text-sm italic">NO UPGRADES</span>
+                                </template>
                             </div>
                         </div>
 
@@ -4836,7 +4909,8 @@
 
                             <template x-if="gachaState === 'ready'">
                                 <p class="text-gray-400 mt-4 text-xl font-bold"
-                                    :class="como < 1 ? 'text-red-400' : 'text-purple-300'" x-text="`1 COMO`"></p>
+                                    :class="como < ITEM_INFO.objekt.cost ? 'text-red-400' : 'text-purple-300'" 
+                                    x-text="`${ITEM_INFO.objekt.cost} COMO`"></p>
                             </template>
 
                             <template x-if="gachaState === 'result'">
