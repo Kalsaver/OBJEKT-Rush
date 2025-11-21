@@ -244,25 +244,28 @@
             }
         }
 
+        /* [수정된 Glass Panel: 테두리와 그림자 통일] */
         .glass-panel {
-            background: rgba(20, 20, 30, 0.6);
+            background: rgba(20, 20, 30, 0.6); /* bg-black/60 느낌 */
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1); /* border-white/10 으로 통일 */
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4); /* 그림자 조금 더 진하게 */
         }
 
+        /* [수정된 Glass Button: 호버 효과 통일] */
         .glass-button {
             background: linear-gradient(145deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.15); /* 기본 테두리 */
             transition: all 0.2s ease-out;
+            color: #d1d5db; /* text-gray-300 기본값 */
         }
 
         .glass-button:hover:not(:disabled) {
-            background: linear-gradient(145deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.1));
-            border-color: rgba(255, 255, 255, 0.3);
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
+            border-color: rgba(255, 255, 255, 0.4); /* 호버 시 테두리 강조 */
             box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
             transform: translateY(-1px);
             color: white !important;
@@ -964,6 +967,7 @@
             }
         };
 
+        /* [수정된 오디오 설정] */
         const GAME_AUDIO_CONFIG = {
             basePath: 'assets/audio/',
             bgm: {
@@ -972,7 +976,12 @@
                 'ranking': 'bgm_title.mp3',
                 'settings': 'bgm_title.mp3',
                 'intermission': 'bgm_intermission.mp3',
-                'playing': 'bgm_playing.mp3',
+                
+                // [MODIFIED] playing -> standard로 변경 및 파일명 변경
+                'standard': 'bgm_standard.mp3', 
+                // [NEW] Overtime 전용 BGM 추가
+                'overtime': 'bgm_overtime.mp3', 
+                
                 'boss_playing': 'bgm_boss.mp3',
                 'gacha': 'bgm_intermission.mp3',
                 'submitScore': 'bgm_intermission.mp3',
@@ -1224,9 +1233,24 @@
                             if (currentAudioBgm) currentAudioBgm.pause();
                         });
 
+                        // [MODIFIED] Focus 시 BGM 복구 로직 고도화 (playing -> standard/overtime/boss 분기 처리)
                         window.addEventListener('focus', () => {
                             if (currentAudioBgm) {
-                                const bgmName = GAME_AUDIO_CONFIG.bgm[this.gameState];
+                                let bgmKey = this.gameState;
+                                
+                                // 'playing' 상태일 때는 세부 상황에 따라 키를 결정
+                                if (this.gameState === 'playing') {
+                                    if (this.isBossBlockActive) {
+                                        bgmKey = 'boss_playing';
+                                    } else if (this.stage === GAME_STAGES.OVERTIME) {
+                                        bgmKey = 'overtime';
+                                    } else {
+                                        bgmKey = 'standard';
+                                    }
+                                }
+
+                                const bgmName = GAME_AUDIO_CONFIG.bgm[bgmKey];
+                                
                                 if (bgmName) {
                                     if (this.gameState === 'intermission' && this.lastStageGrade === 'F') {
                                         // Do nothing
@@ -2366,7 +2390,7 @@
                             const pool = this.bossPools[poolKey];
 
                             let gravityPool;
-                            if (this.stage === 11) {
+                            if (this.stage === GAME_STAGES.OVERTIME) {
                                 gravityPool = this.seasonGravityVotes;
                             } else {
                                 gravityPool = this.localGravityVotes;
@@ -2391,10 +2415,8 @@
                     if (chosenType === 'dimension') {
                         members = this.memberData.filter(m => m.dimensions.includes(blockLabel));
                         blockSize = members.length;
-                        // [REFACTOR] Use Constants for Boss Time
                         blockTime = GAME_BALANCE.TIME_BASE_BOSS + (blockSize * GAME_BALANCE.TIME_PER_MEMBER);
                     } else {
-                        // [REFACTOR] Use Constants for Normal Time & Max Members
                         blockSize = Math.floor(Math.random() * GAME_BALANCE.MAX_BLOCK_MEMBERS) + 1;
                         blockTime = GAME_BALANCE.TIME_BASE_NORMAL + (blockSize * GAME_BALANCE.TIME_PER_MEMBER);
 
@@ -2403,18 +2425,22 @@
 
                     blockTime += config.timeBonus || 0;
 
-                    // [REFACTOR] Use Constant for Time Item
                     if (this.timePlusLevel > 0) blockTime += GAME_BALANCE.TIME_ITEM_BONUS;
 
                     this.currentBlock = { id: Date.now() + Math.random(), members: members, bundleType: chosenType, bundleLabel: blockLabel, timeLimit: blockTime, timer: blockTime, isBoss: isBoss };
                     this.completedCards = []; this.selectedData = null; this.selectedInventoryCard = null; this.updateMatchedOrders(); this.startBlockTimer();
 
+                    // [MODIFIED] BGM 재생 로직: Boss -> Overtime -> Standard 순으로 확인
                     if (isBoss) {
                         this.isBossBlockActive = true;
                         this.switchBGM('boss_playing');
                     } else {
                         this.isBossBlockActive = false;
-                        this.switchBGM('playing');
+                        if (this.stage === GAME_STAGES.OVERTIME) {
+                            this.switchBGM('overtime');
+                        } else {
+                            this.switchBGM('standard');
+                        }
                     }
                 },
                 checkStageCompletion() {
@@ -2436,9 +2462,6 @@
                     if (isStageComplete) {
                         this.playSound('stage_clear');
 
-                        // [REMOVED] 'STAGE CLEAR!' 메시지 출력을 삭제하여 마지막 블록의 점수가 보이도록 유지함
-                        // this.showFeedback('STAGE CLEAR!', 'correct'); 
-
                         setTimeout(() => {
                             this.goToIntermission();
                         }, 2000);
@@ -2447,11 +2470,21 @@
                         if (isLastNormalBlockBeforeBoss) {
                             this.playSound('warn');
                             this.nextBlockWillBeBoss = true;
-                            this.switchBGM('playing');
+                            // [MODIFIED] 경고 중에도 기본 BGM 유지 (Overtime 체크)
+                            if (this.stage === GAME_STAGES.OVERTIME) {
+                                this.switchBGM('overtime');
+                            } else {
+                                this.switchBGM('standard');
+                            }
                             setTimeout(() => { this.nextBlockWillBeBoss = false; this.generateNewBlock(); }, 3000);
                         } else {
                             this.isBossBlockActive = false;
-                            this.switchBGM('playing');
+                            // [MODIFIED] 일반 블록 전환 시 BGM 복구 (Overtime 체크)
+                            if (this.stage === GAME_STAGES.OVERTIME) {
+                                this.switchBGM('overtime');
+                            } else {
+                                this.switchBGM('standard');
+                            }
                             setTimeout(() => { this.generateNewBlock(); }, 1500);
                         }
                     }
@@ -3904,7 +3937,7 @@
             </div>
 
             <div x-show="report.show" x-transition
-                class="absolute inset-0 w-full h-full flex flex-col justify-center items-center bg-black/70 backdrop-blur-sm z-[60] p-6"
+                class="absolute inset-0 w-full h-full flex flex-col justify-center items-center bg-black/80 backdrop-blur-sm z-[60] p-6"
                 @click="closeStageReport()">
                 <div class="glass-panel p-6 rounded-3xl text-center border border-purple-500/50 shadow-[0_0_30px_rgba(168,85,247,0.3)] unlock-bounce max-w-sm w-full"
                     @click.stop>
@@ -3929,29 +3962,68 @@
                         <hr class="border-white/10">
 
                         <h4 class="text-base font-bold text-green-400 mb-1">SCORE BREAKDOWN (+)</h4>
-                        <div class="pl-3 space-y-1">
-                            <div class="text-sm font-medium text-gray-300 flex justify-between"><span>🎯 BASE</span><span x-text="report.baseScore"></span></div>
-                            <div class="text-sm font-medium text-gray-300 flex justify-between"><span>✨ PERFECT</span><span x-text="report.perfectBonusScore"></span></div>
-                            <div class="text-sm font-medium text-gray-300 flex justify-between"><span>⛓️ CHAIN</span><span x-text="report.chainBonusScore"></span></div>
+                        <div class="pl-1 space-y-1"> <div class="text-sm font-medium text-gray-300 flex justify-between items-center">
+                                <div class="flex items-center">
+                                    <span class="w-6 text-center mr-1">🎯</span>
+                                    <span>BASE</span>
+                                </div>
+                                <span x-text="report.baseScore"></span>
+                            </div>
+                            <div class="text-sm font-medium text-gray-300 flex justify-between items-center">
+                                <div class="flex items-center">
+                                    <span class="w-6 text-center mr-1">✨</span>
+                                    <span>PERFECT</span>
+                                </div>
+                                <span x-text="report.perfectBonusScore"></span>
+                            </div>
+                            <div class="text-sm font-medium text-gray-300 flex justify-between items-center">
+                                <div class="flex items-center">
+                                    <span class="w-6 text-center mr-1">⛓️</span>
+                                    <span>CHAIN</span>
+                                </div>
+                                <span x-text="report.chainBonusScore"></span>
+                            </div>
                         </div>
 
                         <hr class="border-white/10">
 
                         <h4 class="text-base font-bold text-red-400 mb-1">PENALTY (-)</h4>
-                        <div class="pl-3 space-y-1">
-                            <div class="text-sm font-medium text-gray-300 flex justify-between"><span>❌ FAIL</span><span x-text="report.failPenalty"></span></div>
-                            <div class="text-sm font-medium text-gray-300 flex justify-between"><span>⏳ TIME OVER</span><span x-text="report.timeOverPenalty"></span></div>
-                            <div class="text-sm font-medium text-gray-300 flex justify-between"><span>🔄 RELOAD</span><span x-text="report.reloadPenalty"></span></div>
+                        <div class="pl-1 space-y-1">
+                            <div class="text-sm font-medium text-gray-300 flex justify-between items-center">
+                                <div class="flex items-center">
+                                    <span class="w-6 text-center mr-1">❌</span>
+                                    <span>FAIL</span>
+                                </div>
+                                <span x-text="report.failPenalty"></span>
+                            </div>
+                            <div class="text-sm font-medium text-gray-300 flex justify-between items-center">
+                                <div class="flex items-center">
+                                    <span class="w-6 text-center mr-1">⏳</span>
+                                    <span>TIME OVER</span>
+                                </div>
+                                <span x-text="report.timeOverPenalty"></span>
+                            </div>
+                            <div class="text-sm font-medium text-gray-300 flex justify-between items-center">
+                                <div class="flex items-center">
+                                    <span class="w-6 text-center mr-1">🔄</span>
+                                    <span>RELOAD</span>
+                                </div>
+                                <span x-text="report.reloadPenalty"></span>
+                            </div>
                         </div>
 
                         <hr class="border-white/10">
 
-                        <h4 class="text-base font-bold text-cyan-400 mb-1">STATISTICS</h4>
-                        <div class="pl-3 grid grid-cols-2 gap-2 text-sm font-medium text-gray-300">
-                            <div class="flex justify-between"><span>MAX CHAIN</span><span
-                                    x-text="report.maxChain"></span></div>
-                            <div class="flex justify-between"><span>PERFECT</span><span
-                                    x-text="report.perfectCount"></span></div>
+                        <h4 class="text-base font-bold text-cyan-400 mb-2">STATISTICS</h4>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="bg-white/5 rounded-lg p-2 flex flex-col items-center justify-center border border-white/5">
+                                <span class="text-xs text-gray-400 font-bold tracking-widest mb-1">MAX CHAIN</span>
+                                <span class="text-2xl font-black text-white" x-text="report.maxChain"></span>
+                            </div>
+                            <div class="bg-white/5 rounded-lg p-2 flex flex-col items-center justify-center border border-white/5">
+                                <span class="text-xs text-gray-400 font-bold tracking-widest mb-1">PERFECT</span>
+                                <span class="text-2xl font-black text-white" x-text="report.perfectCount"></span>
+                            </div>
                         </div>
                     </div>
 
@@ -3961,7 +4033,7 @@
             </div>
 
             <div x-show="returnConfirmModal.show" x-transition
-                class="absolute inset-0 w-full h-full flex flex-col justify-center items-center bg-black/70 backdrop-blur-sm z-[65] p-6"
+                class="absolute inset-0 w-full h-full flex flex-col justify-center items-center bg-black/80 backdrop-blur-sm z-[65] p-6"
                 @click="cancelReturn()">
                 <div class="glass-panel p-6 rounded-3xl text-center border border-red-500/50 shadow-2xl max-w-sm w-full"
                     @click.stop>
@@ -3978,7 +4050,7 @@
             </div>
 
             <div x-show="resetConfirmModal.show" x-transition
-                class="absolute inset-0 w-full h-full flex flex-col justify-center items-center bg-black/70 backdrop-blur-sm z-[65] p-6"
+                class="absolute inset-0 w-full h-full flex flex-col justify-center items-center bg-black/80 backdrop-blur-sm z-[65] p-6"
                 @click="cancelReset()">
                 <div class="glass-panel p-6 rounded-3xl text-center border border-red-500/50 shadow-2xl max-w-sm w-full"
                     @click.stop>
@@ -4067,13 +4139,13 @@
 
                         <template x-for="(entry, index) in (rankingTab === 'main' ? highScores : extraHighScores)"
                             :key="entry.name + entry.score + index + rankingTab">
-                            <div class="glass-panel rounded-xl overflow-hidden transition-all duration-300 border-l-4"
+                            <div class="glass-panel rounded-xl overflow-hidden transition-all duration-300 border-l-4 border-white/10"
                                 :class="{
-                                    'border-l-yellow-400 bg-yellow-400/5': index === 0, 
-                                    'border-l-gray-300 bg-gray-300/5': index === 1, 
-                                    'border-l-yellow-700 bg-yellow-700/5': index === 2,
-                                    'border-l-transparent': index > 2,
-                                    'ring-1 ring-white/20': expandedIndex === index
+                                    'border-l-yellow-400 bg-yellow-400/10': index === 0, 
+                                    'border-l-gray-300 bg-gray-300/10': index === 1, 
+                                    'border-l-yellow-700 bg-yellow-700/10': index === 2,
+                                    'border-l-gray-600': index > 2,
+                                    'ring-1 ring-white/30': expandedIndex === index
                                 }">
 
                                 <div @click="expandedIndex = (expandedIndex === index ? null : index); playSound('click')"
@@ -4316,8 +4388,7 @@
                         </div>
                     </div>
 
-                    <div
-                        class="glass-panel p-4 rounded-2xl mb-4 border border-white/10 border-l-4 border-l-cyan-500 flex justify-between items-center">
+                    <div class="glass-panel p-4 rounded-2xl mb-4 border border-white/10 border-l-4 border-l-cyan-500 flex justify-between items-center">
                         <h3 class="text-lg font-bold text-gray-300 tracking-wider">LANGUAGE</h3>
 
                         <div class="relative">
@@ -4328,30 +4399,32 @@
                                     </option>
                                 </template>
                             </select>
-                            <div
-                                class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
-                                <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg"
-                                    viewBox="0 0 20 20">
-                                    <path
-                                        d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                                <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
                                 </svg>
                             </div>
                         </div>
                     </div>
 
                     <div class="glass-panel p-4 rounded-2xl mb-6 border border-white/10 border-l-4 border-l-cyan-500">
+    
                         <div class="flex items-center mb-4">
                             <div class="w-12 text-sm font-bold text-gray-400 mr-3">BGM</div>
+                            
                             <input type="range" min="0" max="1" step="0.05" :value="bgmVolume" @input="updateBGMVolume"
                                 class="flex-grow h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500 hover:accent-cyan-400 transition-all">
-                            <div class="w-10 text-right text-sm font-bold text-cyan-300 ml-3"
+                                
+                            <div class="w-10 text-right text-sm font-bold text-cyan-400 ml-3"
                                 x-text="`${Math.round(bgmVolume * 100)}%`"></div>
                         </div>
 
                         <div class="flex items-center">
                             <div class="w-12 text-sm font-bold text-gray-400 mr-3">SFX</div>
+                            
                             <input type="range" min="0" max="1" step="0.05" :value="sfxVolume" @input="updateSFXVolume"
                                 class="flex-grow h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-pink-500 hover:accent-pink-400 transition-all">
+                                
                             <div class="w-10 text-right text-sm font-bold text-pink-400 ml-3"
                                 x-text="`${Math.round(sfxVolume * 100)}%`"></div>
                         </div>
@@ -4394,15 +4467,19 @@
                                 <p class="text-[10px] font-bold text-gray-500 mb-2 tracking-widest">BGM CREDITS (Pixabay)</p>
                                 <div class="space-y-1.5 text-[11px]">
                                     <div class="flex justify-between items-center">
-                                        <span class="text-gray-500 font-bold w-16">TITLE</span>
+                                        <span class="text-gray-500 font-bold w-24">TITLE</span>
                                         <span class="text-white text-right truncate flex-1">ValentinaLópezz - Calm Atmosphere</span>
                                     </div>
                                     <div class="flex justify-between items-center">
-                                        <span class="text-gray-500 font-bold w-16">PLAY</span>
+                                        <span class="text-gray-500 font-bold w-24">STANDARD</span>
                                         <span class="text-white text-right truncate flex-1">lofidreams - Velo City</span>
                                     </div>
                                     <div class="flex justify-between items-center">
-                                        <span class="text-gray-500 font-bold w-16">BOSS</span>
+                                        <span class="text-gray-500 font-bold w-24">OVERTIME</span>
+                                        <span class="text-white text-right truncate flex-1">TuneTrove - Cyberpunk</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-500 font-bold w-24">BOSS</span>
                                         <span class="text-white text-right truncate flex-1">Psychronic - Cyber Duel</span>
                                     </div>
                                     <div class="flex justify-between items-center">
@@ -4410,7 +4487,7 @@
                                         <span class="text-white text-right truncate flex-1">JuliusH - Urban Midnight</span>
                                     </div>
                                     <div class="flex justify-between items-center">
-                                        <span class="text-gray-500 font-bold w-16">ENDING</span>
+                                        <span class="text-gray-500 font-bold w-24">ENDING</span>
                                         <span class="text-white text-right truncate flex-1">Jean Paul V - Atmosphere nuit calme (song 2)</span>
                                     </div>
                                 </div>
@@ -4432,7 +4509,7 @@
             </div>
 
             <div x-show="suggestionModal.show" x-transition
-                class="absolute inset-0 w-full h-full flex flex-col justify-center items-center bg-black/70 backdrop-blur-sm z-[65] p-6"
+                class="absolute inset-0 w-full h-full flex flex-col justify-center items-center bg-black/80 backdrop-blur-sm z-[65] p-6"
                 @click="closeSuggestionModal()">
                 <div class="glass-panel p-6 rounded-3xl w-full max-w-md" @click.stop>
                     <h3 class="text-2xl font-bold text-yellow-300 mb-4">SEND SUGGESTION</h3>
@@ -4457,7 +4534,7 @@
             </div>
 
             <div x-show="badgeSelectModal.show" x-transition
-                class="absolute inset-0 w-full h-full flex flex-col justify-center items-center bg-black/70 backdrop-blur-sm z-[65] p-6"
+                class="absolute inset-0 w-full h-full flex flex-col justify-center items-center bg-black/80 backdrop-blur-sm z-[65] p-6"
                 @click="closeBadgeModal()">
                 <div class="glass-panel p-6 rounded-3xl w-full max-w-md" @click.stop>
                     <h3 class="text-2xl font-bold text-cyan-300 mb-4">SELECT AGENT BADGE</h3>
@@ -4491,7 +4568,7 @@
             </div>
 
             <div x-show="accountModalShow" x-transition
-                class="absolute inset-0 w-full h-full flex flex-col justify-center items-center bg-black/70 backdrop-blur-sm z-[65] p-6"
+                class="absolute inset-0 w-full h-full flex flex-col justify-center items-center bg-black/80 backdrop-blur-sm z-[65] p-6"
                 @click="closeAccountModal()">
                 <div class="glass-panel p-6 rounded-3xl w-full max-w-md relative overflow-hidden border border-white/10"
                     @click.stop>
@@ -4796,7 +4873,7 @@
             </div>
 
             <div x-show="isCrafting" x-transition.opacity.duration.300ms
-                class="absolute inset-0 w-full h-full flex flex-col justify-center items-center p-4 z-50 bg-black/70 backdrop-blur-sm">
+                class="absolute inset-0 w-full h-full flex flex-col justify-center items-center p-4 z-50 bg-black/80 backdrop-blur-sm">
                 <h2 class="text-3xl font-bold text-teal-400 text-glow-sm mb-8"
                     x-text="craftingCard ? `GRID: ${craftingCard?.sNumber}` : 'GRIDDING...'"></h2>
                 <div class="craft-grid-container p-8 glass-panel rounded-full">
@@ -4852,7 +4929,7 @@
             </div>
 
             <div x-show="shopModal.show" x-transition
-                class="absolute inset-0 w-full h-full flex flex-col justify-center items-center bg-black/70 backdrop-blur-sm z-[60] p-6"
+                class="absolute inset-0 w-full h-full flex flex-col justify-center items-center bg-black/80 backdrop-blur-sm z-[60] p-6"
                 @click="closeShopModal()">
                 <div class="glass-panel p-6 rounded-3xl text-center border border-white/10 shadow-2xl max-w-sm w-full"
                     @click.stop>
