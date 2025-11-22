@@ -166,6 +166,32 @@
             }
         }
 
+        /* [수정됨] 스캔라인 효과 강화 (가시성 UP) */
+        .scanline-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            
+            /* [변경] 줄무늬 색상 강화: 0.1 -> 0.5 (훨씬 진해짐) */
+            background: linear-gradient(
+                to bottom,
+                rgba(255, 255, 255, 0),
+                rgba(255, 255, 255, 0) 30%,
+                rgba(0, 0, 0, 0.5) 30%,
+                rgba(0, 0, 0, 0.5)
+            );
+            
+            /* [변경] 줄 간격 축소: 4px -> 3px (더 촘촘한 모니터 픽셀 느낌) */
+            background-size: 100% 3px;
+            
+            z-index: 10;
+            pointer-events: none; /* 클릭 통과 필수 */
+            
+            /* [변경] 전체 투명도 증가: 0.6 -> 0.8 */
+            opacity: 0.5;
+            
+            border-radius: 1rem;
+        }
+
         .scan-in {
             animation: scan-enter 1.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
         }
@@ -590,6 +616,46 @@
 
             100% {
                 transform: scale(1.5) rotate(0deg);
+            }
+        }
+
+        /* [최종 수정] 타이틀 배경 부유물 (가로폭 확대 + 속도 조절) */
+        .floating-objekt {
+            position: absolute;
+            /* [변경] 가로를 56px -> 64px로 늘림 (비율 조정) */
+            width: 64px; 
+            height: 84px;
+            border-radius: 0.5rem;
+            
+            /* 내부 투명도 유지 */
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.0));
+            backdrop-filter: blur(2px);
+            -webkit-backdrop-filter: blur(2px);
+            
+            /* 테두리 유지 */
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+            
+            will-change: transform; 
+            /* [변경] 기본 속도를 20s -> 30s로 늦춤 (HTML 인라인 스타일이 우선 적용되지만 기본값 설정) */
+            animation: float-rotate 30s infinite linear;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        @keyframes float-rotate {
+            0% {
+                transform: translateY(110vh) rotate(0deg) scale(0.8);
+                opacity: 0;
+            }
+            10% { opacity: 0; }
+            20% { opacity: 0.9; } 
+            80% { opacity: 0.9; } 
+            90% { opacity: 0; }
+            100% {
+                transform: translateY(-20vh) rotate(360deg) scale(1.2);
+                opacity: 0;
             }
         }
 
@@ -2202,9 +2268,9 @@
                     let unlockMsg = '';
 
                     if (nextStage === 2) unlockMsg = 'SHOP OPEN!, RELOAD CHARGE';
-                    else if (nextStage === 4) unlockMsg = 'SYSTEM UNLOCKED!, SPIN, GRID';
+                    else if (nextStage === 4) unlockMsg = 'UNLOCKED!, SPIN, GRID'; 
                     else if (nextStage === 5) unlockMsg = 'NEW ITEM!, TIME+, SCAN';
-                    else if (nextStage === 6) unlockMsg = 'SYSTEM UNLOCKED!, GRAVITY SYSTEM READY';
+                    else if (nextStage === 6) unlockMsg = 'UNLOCKED!, GRAVITY SYSTEM'; 
                     else if (nextStage === 7) unlockMsg = 'NEW ITEM!, AMULET, ASSIST';
 
                     // S11 클리어 후
@@ -2275,7 +2341,8 @@
 
                     if (snapshot.empty) {
                         this.existingRecord = null;
-                        this.playerName = 'SSS';
+                        // [수정] 'SSS' -> '' (빈 문자열로 변경하여 placeholder가 보이게 함)
+                        this.playerName = ''; 
                         return null;
                     }
 
@@ -3353,6 +3420,19 @@
                 <div class="absolute inset-0 w-full h-full flex flex-col justify-center items-center z-50 title-bg-effect overflow-hidden"
                     x-transition.opacity>
 
+                    <div class="absolute inset-0 overflow-hidden pointer-events-none">
+                        <template x-for="i in 5">
+                            <div class="floating-objekt"
+                                :style="`
+                                    left: ${Math.random() * 90}%; 
+                                    animation-delay: -${Math.random() * 25}s; 
+                                    /* [변경] 속도: 20~40초 사이로 느리게 (기존 15~30초) */
+                                    animation-duration: ${20 + Math.random() * 20}s;
+                                `">
+                            </div>
+                        </template>
+                    </div>
+
                     <div class="z-10 text-center p-8 flex flex-col items-center w-full">
                         <h1 class="text-7xl font-black mb-2 tracking-tighter leading-none"><span
                                 class="holo-text">OBJEKT</span><br><span class="text-white">RUSH</span></h1>
@@ -3575,6 +3655,7 @@
                             </div>
                         </template>
                     </div>
+                    <div class="scanline-overlay"></div>
                 </div>
 
                 <div id="slot-line" class="w-full flex-shrink-0 p-2 mb-1 rounded-2xl glass-panel"
@@ -3640,16 +3721,15 @@
                     </div>
                 </div>
 
-                <div class="w-full px-1 py-2 grid grid-cols-2 gap-3">
-                    <button @click="reloadData()"
-                        class="glass-button w-full py-4 text-xl font-bold rounded-2xl transition-all active:scale-95"
+                <div class="w-full px-1 py-2 grid grid-cols-2 gap-3 flex-shrink-0"> <button @click="reloadData()"
+                        class="glass-button w-full py-2 text-xl font-bold rounded-2xl transition-all active:scale-95"
                         :class="{'guide-pulse': checkSmartReload()}">
                         RELOAD
                         <span :class="getReloadDisplayColor()" x-text="`(${getReloadDisplayCount()})`"></span>
                     </button>
                     <button @click="inputData()" :disabled="!inputEnabled()"
                         :class="{ 'opacity-50 cursor-not-allowed': !inputEnabled(), 'btn-green-glow text-green-400': inputEnabled() }"
-                        class="glass-button w-full py-4 text-xl font-bold rounded-2xl transition-all active:scale-95">INPUT</button>
+                        class="glass-button w-full py-2 text-xl font-bold rounded-2xl transition-all active:scale-95">INPUT</button>
                 </div>
 
                 <div id="data-pool"
@@ -4178,12 +4258,11 @@
                 class="absolute inset-0 w-full h-full flex flex-col justify-between p-4 z-50 bg-black/80 backdrop-blur-md">
                 <div class="flex-grow overflow-y-auto scrollbar-thin -mr-4 pr-4">
                     <h2 class="text-4xl font-black text-center mt-6 mb-2 text-white">REKORD ARCHIVE</h2>
+                    
                     <div class="text-center mb-6 flex items-center justify-center gap-3">
-    
                         <button @click="openArchive()" 
                             class="px-2 py-0.5 rounded-lg border-2 transition-all active:scale-95 hover:bg-white/5 focus:outline-none"
                             :style="`border-color: ${viewingSeason?.state === 'frozen' ? '#4B5563' : viewingSeason?.color};`">
-                            
                             <span class="text-xl font-black tracking-widest text-glow-sm"
                                 :style="`color: ${viewingSeason?.state === 'frozen' ? '#9CA3AF' : viewingSeason?.color}; text-shadow: 0 0 10px ${viewingSeason?.state === 'frozen' ? '#9CA3AF' : viewingSeason?.color}80;`">
                                 <span x-text="viewingSeason?.id"></span>
@@ -4191,9 +4270,8 @@
                         </button>
 
                         <div class="flex items-center">
-                            
                             <span title="Season Reward"
-                                class="inline-flex items-center justify-center w-8 h-8 glass-button rounded-lg text-lg">
+                                class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-lg border border-white/10 bg-white/5 cursor-default shadow-inner">
                                 <span x-text="viewingSeason?.badge"></span>
                             </span>
 
@@ -4216,13 +4294,14 @@
                             </template>
                         </div>
                     </div>
+
                     <div class="flex w-full mb-4 p-1 gap-2">
-                        <button @click="rankingTab = 'main'"
+                        <button @click="rankingTab = 'main'; expandedIndex = null;"
                             class="w-1/2 py-3 rounded-xl text-sm font-black tracking-widest border"
                             :class="rankingTab === 'main' ? 'bg-cyan-500/10 border-cyan-500/50 text-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'bg-transparent border-transparent text-gray-600 hover:text-gray-400'">
                             STANDARD
                         </button>
-                        <button @click="rankingTab = 'extra'"
+                        <button @click="rankingTab = 'extra'; expandedIndex = null;"
                             class="w-1/2 py-3 rounded-xl text-sm font-black tracking-widest border"
                             :class="rankingTab === 'extra' ? 'bg-pink-500/10 border-pink-500/50 text-pink-300 shadow-[0_0_15px_rgba(244,114,182,0.2)]' : 'bg-transparent border-transparent text-gray-600 hover:text-gray-400'">
                             OVERTIME
@@ -4253,7 +4332,7 @@
                                 <div @click="expandedIndex = (expandedIndex === index ? null : index); playSound('click')"
                                     class="p-3 flex items-center cursor-pointer relative">
 
-                                    <div class="flex items-center space-x-3 w-1/3 min-w-0">
+                                    <div class="flex items-center space-x-3 flex-grow min-w-0">
                                         <div class="flex-shrink-0 w-6 text-center font-black text-lg italic"
                                             :class="{'text-yellow-300 text-glow': index === 0, 'text-gray-300': index === 1, 'text-yellow-700': index === 2, 'text-gray-600': index > 2}"
                                             x-text="index + 1"></div>
@@ -4265,36 +4344,7 @@
                                             x-text="entry.name"></div>
                                     </div>
 
-                                    <div class="flex-grow flex items-center justify-center px-1">
-                                        <template
-                                            x-if="entry.items && (entry.items.reload > 0 || entry.items.time > 0 || entry.items.scan > 0 || entry.items.amulet > 0 || entry.items.assist > 0)">
-                                            <div
-                                                class="flex space-x-1 bg-black/40 px-2 py-1 rounded-full border border-white/5">
-                                                
-                                                <template x-if="entry.items.reload > 0">
-                                                    <span class="text-xs" :title="ITEM_INFO.reload.title" x-text="ITEM_INFO.reload.icon"></span>
-                                                </template>
-                                                
-                                                <template x-if="entry.items.time > 0">
-                                                    <span class="text-xs" :title="ITEM_INFO.timePlus.title" x-text="ITEM_INFO.timePlus.icon"></span>
-                                                </template>
-                                                
-                                                <template x-if="entry.items.scan > 0">
-                                                    <span class="text-xs" :title="ITEM_INFO.scan.title" x-text="ITEM_INFO.scan.icon"></span>
-                                                </template>
-                                                
-                                                <template x-if="entry.items.amulet > 0">
-                                                    <span class="text-xs" :title="ITEM_INFO.amulet.title" x-text="ITEM_INFO.amulet.icon"></span>
-                                                </template>
-                                                
-                                                <template x-if="entry.items.assist > 0">
-                                                    <span class="text-xs" :title="ITEM_INFO.assist.title" x-text="ITEM_INFO.assist.icon"></span>
-                                                </template>
-                                            </div>
-                                        </template>
-                                    </div>
-
-                                    <div class="text-right w-1/4 flex-shrink-0 flex items-center justify-end space-x-2">
+                                    <div class="text-right flex-shrink-0 flex items-center justify-end space-x-2 pl-2">
                                         <span class="font-black text-xl text-yellow-300 text-glow-sm tracking-tighter"
                                             x-text="entry.score"></span>
 
@@ -4310,15 +4360,43 @@
                                 <div x-show="expandedIndex === index" x-collapse
                                     class="bg-black/40 border-t border-white/10 p-3">
 
+                                    <div class="flex flex-wrap items-center gap-2 mb-3 pb-3 border-b border-white/5">
+                                        <span class="text-[10px] text-gray-500 font-bold tracking-widest uppercase mr-2">USED ITEMS</span>
+                                        <template
+                                            x-if="entry.items && (entry.items.reload > 0 || entry.items.time > 0 || entry.items.scan > 0 || entry.items.amulet > 0 || entry.items.assist > 0)">
+                                            <div class="flex space-x-2">
+                                                <template x-if="entry.items.reload > 0">
+                                                    <div class="flex items-center space-x-1 bg-black/30 px-1.5 py-0.5 rounded border border-white/10" :title="ITEM_INFO.reload.title">
+                                                        <span class="text-xs" x-text="ITEM_INFO.reload.icon"></span>
+                                                        <span class="text-[9px] text-gray-400" x-text="`+${entry.items.reload}`"></span>
+                                                    </div>
+                                                </template>
+                                                <template x-if="entry.items.time > 0">
+                                                    <span class="text-xs opacity-80" :title="ITEM_INFO.timePlus.title" x-text="ITEM_INFO.timePlus.icon"></span>
+                                                </template>
+                                                <template x-if="entry.items.scan > 0">
+                                                    <span class="text-xs opacity-80" :title="ITEM_INFO.scan.title" x-text="ITEM_INFO.scan.icon"></span>
+                                                </template>
+                                                <template x-if="entry.items.amulet > 0">
+                                                    <span class="text-xs opacity-80" :title="ITEM_INFO.amulet.title" x-text="ITEM_INFO.amulet.icon"></span>
+                                                </template>
+                                                <template x-if="entry.items.assist > 0">
+                                                    <span class="text-xs opacity-80" :title="ITEM_INFO.assist.title" x-text="ITEM_INFO.assist.icon"></span>
+                                                </template>
+                                            </div>
+                                        </template>
+                                        <template x-if="!entry.items || (entry.items.reload === 0 && entry.items.time === 0 && entry.items.scan === 0 && entry.items.amulet === 0 && entry.items.assist === 0)">
+                                            <span class="text-[10px] text-gray-600 italic">No Items Used</span>
+                                        </template>
+                                    </div>
+
                                     <template x-if="!entry.specialCards || entry.specialCards.length === 0">
-                                        <div class="text-center text-xs text-gray-600 italic py-2">No Special Cards
-                                            Collected</div>
+                                        <div class="text-center text-xs text-gray-600 italic py-1">No Special Cards Collected</div>
                                     </template>
 
                                     <template x-if="entry.specialCards && entry.specialCards.length > 0">
                                         <div>
-                                            <div
-                                                class="text-[10px] text-gray-500 font-bold mb-2 tracking-widest uppercase">
+                                            <div class="text-[10px] text-gray-500 font-bold mb-2 tracking-widest uppercase">
                                                 Special Collection</div>
                                             <div class="flex flex-wrap gap-1.5">
                                                 <template x-for="card in entry.specialCards"
@@ -4332,9 +4410,7 @@
                                                                 x-text="card.sNumber.replace('S', '')"></span>
                                                         </div>
 
-                                                        <div
-                                                            class="w-1/4 h-full holo-bg border-l border-black/10 opacity-80">
-                                                        </div>
+                                                        <div class="w-1/4 h-full holo-bg border-l border-black/10 opacity-80"></div>
                                                     </div>
                                                 </template>
                                             </div>
@@ -4740,15 +4816,16 @@
             <div x-show="gameState === 'ending'" x-transition.opacity
                 class="absolute inset-0 w-full h-full flex flex-col justify-start items-center p-4 z-50 text-center bg-black/80 backdrop-blur-md relative ending-screen-overlay overflow-y-auto scrollbar-thin">
                 <div class="flex-grow w-full max-w-lg pt-4 pb-2">
+                    
                     <div class="glass-panel p-6 rounded-3xl mb-4 w-full border-4 transition-colors" :class="{
-                             'border-yellow-300 shadow-[0_0_25px_rgba(253,224,71,0.5)]': endingType === 'S',
-                             'border-green-400 shadow-[0_0_20px_rgba(52,211,153,0.4)]': endingType === 'A',
-                             'border-blue-400 shadow-[0_0_15px_rgba(96,165,250,0.3)]': endingType === 'B',
-                             'border-gray-500 shadow-none': endingType === 'C'
-                         }">
+                            'border-yellow-300 shadow-[0_0_25px_rgba(253,224,71,0.5)]': endingType === 'S',
+                            'border-green-400 shadow-[0_0_20px_rgba(52,211,153,0.4)]': endingType === 'A',
+                            'border-blue-400 shadow-[0_0_15px_rgba(96,165,250,0.3)]': endingType === 'B',
+                            'border-gray-500 shadow-none': endingType === 'C'
+                        }">
                         <h2 class="text-5xl font-black text-glow mb-2 ending-rank-glow"
                             :class="[ENDING_MESSAGES[endingType]?.theme || 'text-white', 'ending-rank-glow']"
-                            x-text="translate(ENDING_MESSAGES[endingType]?.title)">
+                            x-text="ENDING_MESSAGES[endingType]?.title">
                         </h2>
                         <p class="text-xl text-gray-300 whitespace-pre-line mb-6"
                             x-text="translate(ENDING_MESSAGES[endingType]?.desc)"></p>
@@ -4757,12 +4834,30 @@
                     </div>
 
                     <div class="glass-panel p-4 rounded-3xl w-full text-left space-y-4">
-                        <h3
-                            class="text-2xl font-bold text-cyan-300 tracking-widest border-b border-cyan-300/30 pb-2 mb-4">
-                            DETAILED MISSION REPORT</h3>
+                        <h3 class="text-2xl font-bold text-cyan-300 tracking-widest border-b border-cyan-300/30 pb-2 mb-4">
+                            MISSION REPORT</h3>
+
+                        <div class="p-3 bg-white/5 rounded-xl">
+                            <h4 class="text-lg font-bold text-gray-300 mb-2">STAGE GRADES</h4>
+                            <div class="grid grid-cols-5 gap-2 text-center">
+                                <template x-for="entry in stageGrades" :key="entry.stage">
+                                    <div class="flex flex-col p-1 rounded-lg bg-black/30 border border-white/10">
+                                        <span class="text-xs text-gray-400 font-bold" x-text="entry.stage"></span>
+                                        <span class="text-2xl font-black" :class="{
+                                                'text-yellow-300': entry.grade === 'S',
+                                                'text-green-400': entry.grade === 'A',
+                                                'text-blue-400': entry.grade === 'B',
+                                                'text-gray-500': entry.grade === 'C',
+                                                'text-red-500': entry.grade === 'F'
+                                            }" x-text="entry.grade">
+                                        </span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
 
                         <div class="p-4 bg-black/40 rounded-xl border border-white/10 space-y-3">
-                            <h4 class="text-lg font-bold text-yellow-300 mb-2">TOTAL PERFORMANCE (S1-S10)</h4>
+                            <h4 class="text-lg font-bold text-yellow-300 mb-2">TOTAL PERFORMANCE</h4>
 
                             <div class="text-sm font-bold text-gray-400 flex justify-between mb-2">
                                 <span>TOTAL CLEARED BLOCKS</span>
@@ -4775,31 +4870,43 @@
                                     <h5 class="text-green-400 font-bold mb-1 border-b border-white/10 pb-1">SCORE GAINED
                                     </h5>
                                     <div class="space-y-1 text-gray-300">
-                                        <div class="flex justify-between"><span>BASE</span><span class="text-white"
-                                                x-text="finalReport.baseScore"></span></div>
-                                        <div class="flex justify-between"><span>PERFECT</span><span class="text-white"
-                                                x-text="finalReport.perfectBonusScore"></span></div>
-                                        <div class="flex justify-between"><span>CHAIN</span><span class="text-white"
-                                                x-text="finalReport.chainBonusScore"></span></div>
+                                        <div class="flex justify-between items-center">
+                                            <div><span class="w-4 text-center mr-1">🎯</span><span>BASE</span></div>
+                                            <span class="text-white" x-text="finalReport.baseScore"></span>
+                                        </div>
+                                        <div class="flex justify-between items-center">
+                                            <div><span class="w-4 text-center mr-1">✨</span><span>PERFECT</span></div>
+                                            <span class="text-white" x-text="finalReport.perfectBonusScore"></span>
+                                        </div>
+                                        <div class="flex justify-between items-center">
+                                            <div><span class="w-4 text-center mr-1">⛓️</span><span>CHAIN</span></div>
+                                            <span class="text-white" x-text="finalReport.chainBonusScore"></span>
+                                        </div>
                                     </div>
                                 </div>
                                 <div>
                                     <h5 class="text-red-400 font-bold mb-1 border-b border-white/10 pb-1">PENALTY
                                         INCURRED</h5>
                                     <div class="space-y-1 text-gray-300">
-                                        <div class="flex justify-between"><span>FAIL</span><span class="text-white"
-                                                x-text="finalReport.failPenalty"></span></div>
-                                        <div class="flex justify-between"><span>TIME</span><span class="text-white"
-                                                x-text="finalReport.timeOverPenalty"></span></div>
-                                        <div class="flex justify-between"><span>RELOAD</span><span class="text-white"
-                                                x-text="finalReport.reloadPenalty"></span></div>
+                                        <div class="flex justify-between items-center">
+                                            <div><span class="w-4 text-center mr-1">❌</span><span>FAIL</span></div>
+                                            <span class="text-white" x-text="finalReport.failPenalty"></span>
+                                        </div>
+                                        <div class="flex justify-between items-center">
+                                            <div><span class="w-4 text-center mr-1">⏳</span><span>TIME</span></div>
+                                            <span class="text-white" x-text="finalReport.timeOverPenalty"></span>
+                                        </div>
+                                        <div class="flex justify-between items-center">
+                                            <div><span class="w-4 text-center mr-1">🔄</span><span>RELOAD</span></div>
+                                            <span class="text-white" x-text="finalReport.reloadPenalty"></span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                             <div
                                 class="mt-2 pt-2 border-t border-white/10 flex justify-between text-sm font-medium text-cyan-300">
-                                <span>BEST CHAIN: <span class="text-white" x-text="finalReport.maxChain"></span></span>
-                                <span>TOTAL PERFECTS: <span class="text-white"
+                                <span>MAX CHAIN: <span class="text-white" x-text="finalReport.maxChain"></span></span>
+                                <span>PERFECT COUNT: <span class="text-white"
                                         x-text="finalReport.perfectCount"></span></span>
                             </div>
                         </div>
@@ -4854,44 +4961,23 @@
                         </div>
 
                         <div class="p-3 bg-white/5 rounded-xl">
-                            <h4 class="text-lg font-bold text-gray-300 mb-2">SPECIAL CARDS COLLECTED (<span
+                            <h4 class="text-lg font-bold text-gray-300 mb-2">SPECIAL CARDS (<span
                                     x-text="inventory.filter(c => c.isSpecial).length"></span>)</h4>
-                            <div class="flex flex-wrap gap-2">
+                            <div class="flex flex-wrap gap-1.5">
                                 <template x-if="inventory.filter(c => c.isSpecial).length === 0"><span
                                         class="text-gray-500 text-sm italic">NO SPECIAL CARDS ACQUIRED</span></template>
+                                
                                 <template x-for="card in inventory.filter(c => c.isSpecial)"
                                     :key="card.inventoryId || card.sNumber">
-                                    <div x-data="objektCard(card)">
-                                        <div class="w-16 h-20 rounded-lg flex shadow-md border-2" :class="borderStyles"
-                                            :style="cardStyles.background">
-                                            <div class="flex-grow h-full flex flex-col items-center justify-center p-1">
-                                                <span class="text-lg font-extrabold" :style="cardStyles.text"
-                                                    x-text="card.sNumber"></span>
-                                            </div>
-                                            <div
-                                                class="flex-shrink-0 w-1/5 h-full bg-black/30 flex items-center justify-center rounded-r-md holo-bg">
-                                            </div>
-                                        </div>
-                                    </div>
-                                </template>
-                            </div>
-                        </div>
+                                    <div class="w-10 h-12 rounded-md flex border border-gray-400 overflow-hidden relative shadow-md"
+                                        :style="`background-color: ${card.color};`">
 
-                        <div class="p-3 bg-white/5 rounded-xl">
-                            <h4 class="text-lg font-bold text-gray-300 mb-2">STAGE GRADES (ST1 - ST10)</h4>
-                            <div class="grid grid-cols-5 gap-2 text-center">
-                                <template x-for="entry in stageGrades" :key="entry.stage">
-                                    <div class="flex flex-col p-1 rounded-lg bg-black/30 border border-white/10">
-                                        <span class="text-xs text-gray-400 font-bold">ST<span
-                                                x-text="entry.stage"></span></span>
-                                        <span class="text-2xl font-black" :class="{
-                                                'text-yellow-300': entry.grade === 'S',
-                                                'text-green-400': entry.grade === 'A',
-                                                'text-blue-400': entry.grade === 'B',
-                                                'text-gray-500': entry.grade === 'C',
-                                                'text-red-500': entry.grade === 'F'
-                                            }" x-text="entry.grade">
-                                        </span>
+                                        <div class="flex-grow flex items-center justify-center">
+                                            <span class="text-sm font-black text-black leading-none"
+                                                x-text="card.sNumber.replace('S', '')"></span>
+                                        </div>
+
+                                        <div class="w-1/4 h-full holo-bg border-l border-black/10 opacity-80"></div>
                                     </div>
                                 </template>
                             </div>
